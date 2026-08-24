@@ -203,9 +203,9 @@ app.get(
 
       const attendanceData =
         await Attendance.find()
-          .sort({
-            timestamp: -1,
-          });
+          // .sort({
+          //   timestamp: -1,
+          // });
 
       console.log(
         "Attendance data fetched:"
