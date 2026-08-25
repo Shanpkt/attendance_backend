@@ -3,10 +3,12 @@ const cors = require("cors");
 const mongoose = require("mongoose");
 
 const Attendance = require("./models/Attendance");
+const Employee = require("./models/Employee");
 
 const app = express();
 
 const PORT = process.env.PORT || 5000;
+
 
 // =====================================
 // MIDDLEWARE
@@ -15,6 +17,7 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 
 app.use(express.json());
+
 
 // =====================================
 // MONGODB CONNECTION
@@ -25,24 +28,42 @@ mongoose
     "mongodb+srv://wings:wings@cluster0.epqncfr.mongodb.net/attendance"
   )
   .then(() => {
+
     console.log(
       "MongoDB connected successfully"
     );
+
   })
   .catch((error) => {
+
     console.error(
       "MongoDB connection error:",
       error
     );
+
   });
+
 
 // =====================================
 // GET HOME ROUTE
 // =====================================
 
-app.get("/", (req, res) => {
-  res.send("Backend is working!");
-});
+app.get(
+  "/",
+  (req, res) => {
+
+    res.send(
+      "Backend is working!"
+    );
+
+  }
+);
+
+
+// ==================================================
+//                    ATTENDANCE
+// ==================================================
+
 
 // =====================================
 // POST ATTENDANCE
@@ -62,11 +83,14 @@ app.post(
         "Attendance data received:"
       );
 
-      console.log(req.body);
+      console.log(
+        req.body
+      );
 
       console.log(
         "================================"
       );
+
 
       const {
         mobileNumber,
@@ -76,6 +100,7 @@ app.post(
         accuracy,
       } = req.body;
 
+
       // =================================
       // VALIDATION
       // =================================
@@ -83,22 +108,30 @@ app.post(
       if (!mobileNumber) {
 
         return res.status(400).json({
+
           success: false,
+
           message:
             "Mobile number is required.",
+
         });
 
       }
+
 
       if (!date) {
 
         return res.status(400).json({
+
           success: false,
+
           message:
             "Date is required.",
+
         });
 
       }
+
 
       if (
         latitude === undefined ||
@@ -106,12 +139,16 @@ app.post(
       ) {
 
         return res.status(400).json({
+
           success: false,
+
           message:
             "Location is required.",
+
         });
 
       }
+
 
       // =================================
       // CREATE ATTENDANCE
@@ -124,8 +161,8 @@ app.post(
 
           date,
 
-          // Server timestamp
-          timestamp: new Date(),
+          timestamp:
+            new Date(),
 
           latitude,
 
@@ -135,12 +172,14 @@ app.post(
 
         });
 
+
       // =================================
-      // SAVE TO MONGODB
+      // SAVE
       // =================================
 
       const savedAttendance =
         await attendance.save();
+
 
       console.log(
         "Attendance saved successfully:"
@@ -150,8 +189,9 @@ app.post(
         savedAttendance
       );
 
+
       // =================================
-      // SEND RESPONSE
+      // RESPONSE
       // =================================
 
       res.status(201).json({
@@ -161,11 +201,13 @@ app.post(
         message:
           "Attendance saved successfully.",
 
-        data: savedAttendance,
+        data:
+          savedAttendance,
 
       });
 
-    } catch (error) {
+    }
+    catch (error) {
 
       console.error(
         "Attendance save error:",
@@ -179,7 +221,8 @@ app.post(
         message:
           "Failed to save attendance.",
 
-        error: error.message,
+        error:
+          error.message,
 
       });
 
@@ -187,6 +230,7 @@ app.post(
 
   }
 );
+
 
 // =====================================
 // GET ALL ATTENDANCE
@@ -198,14 +242,12 @@ app.get(
 
     try {
 
-      // Get all attendance
-      // Latest first
-
       const attendanceData =
         await Attendance.find()
-          // .sort({
-          //   timestamp: -1,
-          // });
+          .sort({
+            timestamp: -1,
+          });
+
 
       console.log(
         "Attendance data fetched:"
@@ -215,9 +257,6 @@ app.get(
         attendanceData
       );
 
-      // =================================
-      // SEND RESPONSE
-      // =================================
 
       res.status(200).json({
 
@@ -234,7 +273,8 @@ app.get(
 
       });
 
-    } catch (error) {
+    }
+    catch (error) {
 
       console.error(
         "Attendance fetch error:",
@@ -248,7 +288,8 @@ app.get(
         message:
           "Failed to fetch attendance data.",
 
-        error: error.message,
+        error:
+          error.message,
 
       });
 
@@ -256,6 +297,272 @@ app.get(
 
   }
 );
+
+
+// ==================================================
+//                     EMPLOYEES
+// ==================================================
+
+
+// =====================================
+// POST NEW EMPLOYEE
+// =====================================
+
+app.post(
+  "/api/employees",
+  async (req, res) => {
+
+    try {
+
+      console.log(
+        "================================"
+      );
+
+      console.log(
+        "New employee data received:"
+      );
+
+      console.log(
+        req.body
+      );
+
+      console.log(
+        "================================"
+      );
+
+
+      // =================================
+      // GET DATA FROM FRONTEND
+      // =================================
+
+      const {
+        name,
+        mobileNumber,
+        email,
+        joiningDate,
+      } = req.body;
+
+
+      // =================================
+      // VALIDATION
+      // =================================
+
+      if (!name) {
+
+        return res.status(400).json({
+
+          success: false,
+
+          message:
+            "Employee name is required.",
+
+        });
+
+      }
+
+
+      if (!mobileNumber) {
+
+        return res.status(400).json({
+
+          success: false,
+
+          message:
+            "Mobile number is required.",
+
+        });
+
+      }
+
+
+      if (!joiningDate) {
+
+        return res.status(400).json({
+
+          success: false,
+
+          message:
+            "Joining date is required.",
+
+        });
+
+      }
+
+
+      // =================================
+      // CHECK DUPLICATE MOBILE
+      // =================================
+
+      const existingEmployee =
+        await Employee.findOne({
+          mobileNumber:
+            mobileNumber,
+        });
+
+
+      if (existingEmployee) {
+
+        return res.status(409).json({
+
+          success: false,
+
+          message:
+            "Employee with this mobile number already exists.",
+
+        });
+
+      }
+
+
+      // =================================
+      // CREATE EMPLOYEE
+      // =================================
+
+      const employee =
+        new Employee({
+
+          name:
+            name,
+
+          mobileNumber:
+            mobileNumber,
+
+          email:
+            email || "",
+
+          joiningDate:
+            joiningDate,
+
+        });
+
+
+      // =================================
+      // SAVE TO MONGODB
+      // =================================
+
+      const savedEmployee =
+        await employee.save();
+
+
+      console.log(
+        "Employee saved successfully:"
+      );
+
+      console.log(
+        savedEmployee
+      );
+
+
+      // =================================
+      // RESPONSE
+      // =================================
+
+      return res.status(201).json({
+
+        success: true,
+
+        message:
+          "Employee created successfully.",
+
+        data:
+          savedEmployee,
+
+      });
+
+    }
+    catch (error) {
+
+      console.error(
+        "Employee creation error:",
+        error
+      );
+
+
+      return res.status(500).json({
+
+        success: false,
+
+        message:
+          "Failed to create employee.",
+
+        error:
+          error.message,
+
+      });
+
+    }
+
+  }
+);
+
+
+// =====================================
+// GET ALL EMPLOYEES
+// =====================================
+
+app.get(
+  "/api/employees",
+  async (req, res) => {
+
+    try {
+
+      const employees =
+        await Employee.find()
+          .sort({
+            createdAt: -1,
+          });
+
+
+      console.log(
+        "Employees fetched:"
+      );
+
+      console.log(
+        employees
+      );
+
+
+      return res.status(200).json({
+
+        success: true,
+
+        message:
+          "Employees fetched successfully.",
+
+        count:
+          employees.length,
+
+        data:
+          employees,
+
+      });
+
+    }
+    catch (error) {
+
+      console.error(
+        "Employee fetch error:",
+        error
+      );
+
+
+      return res.status(500).json({
+
+        success: false,
+
+        message:
+          "Failed to fetch employees.",
+
+        error:
+          error.message,
+
+      });
+
+    }
+
+  }
+);
+
 
 // =====================================
 // START SERVER
