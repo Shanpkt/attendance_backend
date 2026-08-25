@@ -10,18 +10,18 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 
-// =====================================
+// ==================================================
 // MIDDLEWARE
-// =====================================
+// ==================================================
 
 app.use(cors());
 
 app.use(express.json());
 
 
-// =====================================
+// ==================================================
 // MONGODB CONNECTION
-// =====================================
+// ==================================================
 
 mongoose
   .connect(
@@ -44,16 +44,16 @@ mongoose
   });
 
 
-// =====================================
-// GET HOME ROUTE
-// =====================================
+// ==================================================
+// HOME ROUTE
+// ==================================================
 
 app.get(
   "/",
   (req, res) => {
 
     res.send(
-      "Backend is working!"
+      "Attendance Backend is working!"
     );
 
   }
@@ -65,9 +65,9 @@ app.get(
 // ==================================================
 
 
-// =====================================
+// ==================================================
 // POST ATTENDANCE
-// =====================================
+// ==================================================
 
 app.post(
   "/api/attendance",
@@ -101,9 +101,9 @@ app.post(
       } = req.body;
 
 
-      // =================================
+      // ==========================================
       // VALIDATION
-      // =================================
+      // ==========================================
 
       if (!mobileNumber) {
 
@@ -150,9 +150,9 @@ app.post(
       }
 
 
-      // =================================
+      // ==========================================
       // CREATE ATTENDANCE
-      // =================================
+      // ==========================================
 
       const attendance =
         new Attendance({
@@ -173,9 +173,9 @@ app.post(
         });
 
 
-      // =================================
-      // SAVE
-      // =================================
+      // ==========================================
+      // SAVE ATTENDANCE
+      // ==========================================
 
       const savedAttendance =
         await attendance.save();
@@ -190,11 +190,11 @@ app.post(
       );
 
 
-      // =================================
+      // ==========================================
       // RESPONSE
-      // =================================
+      // ==========================================
 
-      res.status(201).json({
+      return res.status(201).json({
 
         success: true,
 
@@ -214,7 +214,8 @@ app.post(
         error
       );
 
-      res.status(500).json({
+
+      return res.status(500).json({
 
         success: false,
 
@@ -232,9 +233,9 @@ app.post(
 );
 
 
-// =====================================
+// ==================================================
 // GET ALL ATTENDANCE
-// =====================================
+// ==================================================
 
 app.get(
   "/api/attendance",
@@ -258,7 +259,7 @@ app.get(
       );
 
 
-      res.status(200).json({
+      return res.status(200).json({
 
         success: true,
 
@@ -281,7 +282,8 @@ app.get(
         error
       );
 
-      res.status(500).json({
+
+      return res.status(500).json({
 
         success: false,
 
@@ -304,9 +306,10 @@ app.get(
 // ==================================================
 
 
-// =====================================
-// POST NEW EMPLOYEE
-// =====================================
+// ==================================================
+// CREATE EMPLOYEE
+// POST /api/employees
+// ==================================================
 
 app.post(
   "/api/employees",
@@ -331,10 +334,6 @@ app.post(
       );
 
 
-      // =================================
-      // GET DATA FROM FRONTEND
-      // =================================
-
       const {
         name,
         mobileNumber,
@@ -343,11 +342,11 @@ app.post(
       } = req.body;
 
 
-      // =================================
+      // ==========================================
       // VALIDATION
-      // =================================
+      // ==========================================
 
-      if (!name) {
+      if (!name || !name.trim()) {
 
         return res.status(400).json({
 
@@ -361,7 +360,10 @@ app.post(
       }
 
 
-      if (!mobileNumber) {
+      if (
+        !mobileNumber ||
+        !mobileNumber.trim()
+      ) {
 
         return res.status(400).json({
 
@@ -389,14 +391,38 @@ app.post(
       }
 
 
-      // =================================
+      // ==========================================
+      // MOBILE NUMBER VALIDATION
+      // ==========================================
+
+      if (
+        !/^\d{10}$/.test(
+          mobileNumber
+        )
+      ) {
+
+        return res.status(400).json({
+
+          success: false,
+
+          message:
+            "Mobile number must contain exactly 10 digits.",
+
+        });
+
+      }
+
+
+      // ==========================================
       // CHECK DUPLICATE MOBILE
-      // =================================
+      // ==========================================
 
       const existingEmployee =
         await Employee.findOne({
+
           mobileNumber:
             mobileNumber,
+
         });
 
 
@@ -414,21 +440,23 @@ app.post(
       }
 
 
-      // =================================
+      // ==========================================
       // CREATE EMPLOYEE
-      // =================================
+      // ==========================================
 
       const employee =
         new Employee({
 
           name:
-            name,
+            name.trim(),
 
           mobileNumber:
-            mobileNumber,
+            mobileNumber.trim(),
 
           email:
-            email || "",
+            email
+              ? email.trim()
+              : "",
 
           joiningDate:
             joiningDate,
@@ -436,16 +464,16 @@ app.post(
         });
 
 
-      // =================================
-      // SAVE TO MONGODB
-      // =================================
+      // ==========================================
+      // SAVE EMPLOYEE
+      // ==========================================
 
       const savedEmployee =
         await employee.save();
 
 
       console.log(
-        "Employee saved successfully:"
+        "Employee created successfully:"
       );
 
       console.log(
@@ -453,9 +481,9 @@ app.post(
       );
 
 
-      // =================================
+      // ==========================================
       // RESPONSE
-      // =================================
+      // ==========================================
 
       return res.status(201).json({
 
@@ -496,9 +524,10 @@ app.post(
 );
 
 
-// =====================================
+// ==================================================
 // GET ALL EMPLOYEES
-// =====================================
+// GET /api/employees
+// ==================================================
 
 app.get(
   "/api/employees",
@@ -564,9 +593,420 @@ app.get(
 );
 
 
-// =====================================
+// ==================================================
+// UPDATE EMPLOYEE
+// PUT /api/employees/:id
+// ==================================================
+
+app.put(
+  "/api/employees/:id",
+  async (req, res) => {
+
+    try {
+
+      console.log(
+        "================================"
+      );
+
+      console.log(
+        "Update employee request:"
+      );
+
+      console.log(
+        "Employee ID:",
+        req.params.id
+      );
+
+      console.log(
+        "New data:",
+        req.body
+      );
+
+      console.log(
+        "================================"
+      );
+
+
+      const employeeId =
+        req.params.id;
+
+
+      const {
+        name,
+        mobileNumber,
+        email,
+        joiningDate,
+      } = req.body;
+
+
+      // ==========================================
+      // VALIDATION
+      // ==========================================
+
+      if (!name || !name.trim()) {
+
+        return res.status(400).json({
+
+          success: false,
+
+          message:
+            "Employee name is required.",
+
+        });
+
+      }
+
+
+      if (
+        !mobileNumber ||
+        !mobileNumber.trim()
+      ) {
+
+        return res.status(400).json({
+
+          success: false,
+
+          message:
+            "Mobile number is required.",
+
+        });
+
+      }
+
+
+      if (!joiningDate) {
+
+        return res.status(400).json({
+
+          success: false,
+
+          message:
+            "Joining date is required.",
+
+        });
+
+      }
+
+
+      // ==========================================
+      // MOBILE VALIDATION
+      // ==========================================
+
+      if (
+        !/^\d{10}$/.test(
+          mobileNumber
+        )
+      ) {
+
+        return res.status(400).json({
+
+          success: false,
+
+          message:
+            "Mobile number must contain exactly 10 digits.",
+
+        });
+
+      }
+
+
+      // ==========================================
+      // FIND EMPLOYEE
+      // ==========================================
+
+      const employee =
+        await Employee.findById(
+          employeeId
+        );
+
+
+      if (!employee) {
+
+        return res.status(404).json({
+
+          success: false,
+
+          message:
+            "Employee not found.",
+
+        });
+
+      }
+
+
+      // ==========================================
+      // CHECK DUPLICATE MOBILE
+      // ==========================================
+
+      const existingEmployee =
+        await Employee.findOne({
+
+          mobileNumber:
+            mobileNumber,
+
+          _id: {
+            $ne: employeeId,
+          },
+
+        });
+
+
+      if (existingEmployee) {
+
+        return res.status(409).json({
+
+          success: false,
+
+          message:
+            "Another employee with this mobile number already exists.",
+
+        });
+
+      }
+
+
+      // ==========================================
+      // UPDATE DATA
+      // ==========================================
+
+      employee.name =
+        name.trim();
+
+      employee.mobileNumber =
+        mobileNumber.trim();
+
+      employee.email =
+        email
+          ? email.trim()
+          : "";
+
+      employee.joiningDate =
+        joiningDate;
+
+
+      // ==========================================
+      // SAVE UPDATED EMPLOYEE
+      // ==========================================
+
+      const updatedEmployee =
+        await employee.save();
+
+
+      console.log(
+        "Employee updated successfully:"
+      );
+
+      console.log(
+        updatedEmployee
+      );
+
+
+      // ==========================================
+      // RESPONSE
+      // ==========================================
+
+      return res.status(200).json({
+
+        success: true,
+
+        message:
+          "Employee updated successfully.",
+
+        data:
+          updatedEmployee,
+
+      });
+
+    }
+    catch (error) {
+
+      console.error(
+        "Employee update error:",
+        error
+      );
+
+
+      // ==========================================
+      // INVALID MONGODB ID
+      // ==========================================
+
+      if (
+        error.name ===
+        "CastError"
+      ) {
+
+        return res.status(400).json({
+
+          success: false,
+
+          message:
+            "Invalid employee ID.",
+
+        });
+
+      }
+
+
+      return res.status(500).json({
+
+        success: false,
+
+        message:
+          "Failed to update employee.",
+
+        error:
+          error.message,
+
+      });
+
+    }
+
+  }
+);
+
+
+// ==================================================
+// DELETE EMPLOYEE
+// DELETE /api/employees/:id
+// ==================================================
+
+app.delete(
+  "/api/employees/:id",
+  async (req, res) => {
+
+    try {
+
+      console.log(
+        "================================"
+      );
+
+      console.log(
+        "Delete employee request:"
+      );
+
+      console.log(
+        "Employee ID:",
+        req.params.id
+      );
+
+      console.log(
+        "================================"
+      );
+
+
+      const employeeId =
+        req.params.id;
+
+
+      // ==========================================
+      // FIND EMPLOYEE
+      // ==========================================
+
+      const employee =
+        await Employee.findById(
+          employeeId
+        );
+
+
+      if (!employee) {
+
+        return res.status(404).json({
+
+          success: false,
+
+          message:
+            "Employee not found.",
+
+        });
+
+      }
+
+
+      // ==========================================
+      // DELETE
+      // ==========================================
+
+      await Employee.findByIdAndDelete(
+        employeeId
+      );
+
+
+      console.log(
+        "Employee deleted successfully:"
+      );
+
+      console.log(
+        employee
+      );
+
+
+      // ==========================================
+      // RESPONSE
+      // ==========================================
+
+      return res.status(200).json({
+
+        success: true,
+
+        message:
+          "Employee deleted successfully.",
+
+        data:
+          employee,
+
+      });
+
+    }
+    catch (error) {
+
+      console.error(
+        "Employee delete error:",
+        error
+      );
+
+
+      // ==========================================
+      // INVALID MONGODB ID
+      // ==========================================
+
+      if (
+        error.name ===
+        "CastError"
+      ) {
+
+        return res.status(400).json({
+
+          success: false,
+
+          message:
+            "Invalid employee ID.",
+
+        });
+
+      }
+
+
+      return res.status(500).json({
+
+        success: false,
+
+        message:
+          "Failed to delete employee.",
+
+        error:
+          error.message,
+
+      });
+
+    }
+
+  }
+);
+
+
+// ==================================================
 // START SERVER
-// =====================================
+// ==================================================
 
 app.listen(
   PORT,
