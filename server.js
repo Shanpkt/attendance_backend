@@ -4,6 +4,7 @@ const mongoose = require("mongoose");
 
 const Attendance = require("./models/Attendance");
 const Employee = require("./models/Employee");
+const Leave = require("./models/Leave");
 
 const app = express();
 
@@ -302,6 +303,90 @@ app.get(
 
 
 // ==================================================
+// GET EMPLOYEE ATTENDANCE
+// GET /api/attendance/employee/:mobileNumber
+// ==================================================
+
+app.get(
+  "/api/attendance/employee/:mobileNumber",
+  async (req, res) => {
+
+    try {
+
+      const mobileNumber =
+        req.params.mobileNumber;
+
+
+      if (!mobileNumber) {
+
+        return res.status(400).json({
+
+          success: false,
+
+          message:
+            "Mobile number is required.",
+
+        });
+
+      }
+
+
+      const attendance =
+        await Attendance.find({
+
+          mobileNumber:
+            mobileNumber,
+
+        }).sort({
+
+          timestamp: -1,
+
+        });
+
+
+      return res.status(200).json({
+
+        success: true,
+
+        message:
+          "Employee attendance fetched successfully.",
+
+        count:
+          attendance.length,
+
+        data:
+          attendance,
+
+      });
+
+    }
+    catch (error) {
+
+      console.error(
+        "Employee attendance fetch error:",
+        error
+      );
+
+
+      return res.status(500).json({
+
+        success: false,
+
+        message:
+          "Failed to fetch employee attendance.",
+
+        error:
+          error.message,
+
+      });
+
+    }
+
+  }
+);
+
+
+// ==================================================
 //                     EMPLOYEES
 // ==================================================
 
@@ -481,10 +566,6 @@ app.post(
       );
 
 
-      // ==========================================
-      // RESPONSE
-      // ==========================================
-
       return res.status(201).json({
 
         success: true,
@@ -594,6 +675,96 @@ app.get(
 
 
 // ==================================================
+// GET SINGLE EMPLOYEE
+// GET /api/employees/:id
+// ==================================================
+
+app.get(
+  "/api/employees/:id",
+  async (req, res) => {
+
+    try {
+
+      const employeeId =
+        req.params.id;
+
+
+      const employee =
+        await Employee.findById(
+          employeeId
+        );
+
+
+      if (!employee) {
+
+        return res.status(404).json({
+
+          success: false,
+
+          message:
+            "Employee not found.",
+
+        });
+
+      }
+
+
+      return res.status(200).json({
+
+        success: true,
+
+        message:
+          "Employee fetched successfully.",
+
+        data:
+          employee,
+
+      });
+
+    }
+    catch (error) {
+
+      console.error(
+        "Employee fetch error:",
+        error
+      );
+
+
+      if (
+        error.name === "CastError"
+      ) {
+
+        return res.status(400).json({
+
+          success: false,
+
+          message:
+            "Invalid employee ID.",
+
+        });
+
+      }
+
+
+      return res.status(500).json({
+
+        success: false,
+
+        message:
+          "Failed to fetch employee.",
+
+        error:
+          error.message,
+
+      });
+
+    }
+
+  }
+);
+
+
+// ==================================================
 // UPDATE EMPLOYEE
 // PUT /api/employees/:id
 // ==================================================
@@ -688,10 +859,6 @@ app.put(
       }
 
 
-      // ==========================================
-      // MOBILE VALIDATION
-      // ==========================================
-
       if (
         !/^\d{10}$/.test(
           mobileNumber
@@ -745,7 +912,8 @@ app.put(
             mobileNumber,
 
           _id: {
-            $ne: employeeId,
+            $ne:
+              employeeId,
           },
 
         });
@@ -785,7 +953,7 @@ app.put(
 
 
       // ==========================================
-      // SAVE UPDATED EMPLOYEE
+      // SAVE
       // ==========================================
 
       const updatedEmployee =
@@ -800,10 +968,6 @@ app.put(
         updatedEmployee
       );
 
-
-      // ==========================================
-      // RESPONSE
-      // ==========================================
 
       return res.status(200).json({
 
@@ -825,10 +989,6 @@ app.put(
         error
       );
 
-
-      // ==========================================
-      // INVALID MONGODB ID
-      // ==========================================
 
       if (
         error.name ===
@@ -898,6 +1058,231 @@ app.delete(
         req.params.id;
 
 
+      const employee =
+        await Employee.findById(
+          employeeId
+        );
+
+
+      if (!employee) {
+
+        return res.status(404).json({
+
+          success: false,
+
+          message:
+            "Employee not found.",
+
+        });
+
+      }
+
+
+      await Employee.findByIdAndDelete(
+        employeeId
+      );
+
+
+      console.log(
+        "Employee deleted successfully:"
+      );
+
+      console.log(
+        employee
+      );
+
+
+      return res.status(200).json({
+
+        success: true,
+
+        message:
+          "Employee deleted successfully.",
+
+        data:
+          employee,
+
+      });
+
+    }
+    catch (error) {
+
+      console.error(
+        "Employee delete error:",
+        error
+      );
+
+
+      if (
+        error.name ===
+        "CastError"
+      ) {
+
+        return res.status(400).json({
+
+          success: false,
+
+          message:
+            "Invalid employee ID.",
+
+        });
+
+      }
+
+
+      return res.status(500).json({
+
+        success: false,
+
+        message:
+          "Failed to delete employee.",
+
+        error:
+          error.message,
+
+      });
+
+    }
+
+  }
+);
+
+
+// ==================================================
+//                    LEAVE SYSTEM
+// ==================================================
+
+
+// ==================================================
+// SCHEDULE LEAVE
+//
+// POST /api/leaves
+// ==================================================
+
+app.post(
+  "/api/leaves",
+  async (req, res) => {
+
+    try {
+
+      console.log(
+        "================================"
+      );
+
+      console.log(
+        "Schedule leave request:"
+      );
+
+      console.log(
+        req.body
+      );
+
+      console.log(
+        "================================"
+      );
+
+
+      const {
+        employeeId,
+        leaveType,
+        startDate,
+        endDate,
+        reason,
+      } = req.body;
+
+
+      // ==========================================
+      // VALIDATION
+      // ==========================================
+
+      if (!employeeId) {
+
+        return res.status(400).json({
+
+          success: false,
+
+          message:
+            "Employee is required.",
+
+        });
+
+      }
+
+
+      if (!startDate) {
+
+        return res.status(400).json({
+
+          success: false,
+
+          message:
+            "Start date is required.",
+
+        });
+
+      }
+
+
+      if (!endDate) {
+
+        return res.status(400).json({
+
+          success: false,
+
+          message:
+            "End date is required.",
+
+        });
+
+      }
+
+
+      // ==========================================
+      // DATE VALIDATION
+      // ==========================================
+
+      const start =
+        new Date(startDate);
+
+      const end =
+        new Date(endDate);
+
+
+      if (
+        Number.isNaN(
+          start.getTime()
+        ) ||
+        Number.isNaN(
+          end.getTime()
+        )
+      ) {
+
+        return res.status(400).json({
+
+          success: false,
+
+          message:
+            "Invalid leave date.",
+
+        });
+
+      }
+
+
+      if (start > end) {
+
+        return res.status(400).json({
+
+          success: false,
+
+          message:
+            "End date cannot be before start date.",
+
+        });
+
+      }
+
+
       // ==========================================
       // FIND EMPLOYEE
       // ==========================================
@@ -923,20 +1308,99 @@ app.delete(
 
 
       // ==========================================
-      // DELETE
+      // CHECK OVERLAPPING LEAVE
       // ==========================================
 
-      await Employee.findByIdAndDelete(
-        employeeId
-      );
+      const overlappingLeave =
+        await Leave.findOne({
+
+          employeeId:
+            employee._id,
+
+          status:
+            "Scheduled",
+
+          startDate: {
+            $lte:
+              endDate,
+          },
+
+          endDate: {
+            $gte:
+              startDate,
+          },
+
+        });
+
+
+      if (overlappingLeave) {
+
+        return res.status(409).json({
+
+          success: false,
+
+          message:
+            "Employee already has scheduled leave during this date range.",
+
+          data:
+            overlappingLeave,
+
+        });
+
+      }
+
+
+      // ==========================================
+      // CREATE LEAVE
+      // ==========================================
+
+      const leave =
+        new Leave({
+
+          employeeId:
+            employee._id,
+
+          employeeName:
+            employee.name,
+
+          mobileNumber:
+            employee.mobileNumber,
+
+          leaveType:
+            leaveType ||
+            "Casual Leave",
+
+          startDate:
+            startDate,
+
+          endDate:
+            endDate,
+
+          reason:
+            reason
+              ? reason.trim()
+              : "",
+
+          status:
+            "Scheduled",
+
+        });
+
+
+      // ==========================================
+      // SAVE
+      // ==========================================
+
+      const savedLeave =
+        await leave.save();
 
 
       console.log(
-        "Employee deleted successfully:"
+        "Leave scheduled successfully:"
       );
 
       console.log(
-        employee
+        savedLeave
       );
 
 
@@ -944,15 +1408,15 @@ app.delete(
       // RESPONSE
       // ==========================================
 
-      return res.status(200).json({
+      return res.status(201).json({
 
         success: true,
 
         message:
-          "Employee deleted successfully.",
+          "Leave scheduled successfully.",
 
         data:
-          employee,
+          savedLeave,
 
       });
 
@@ -960,14 +1424,10 @@ app.delete(
     catch (error) {
 
       console.error(
-        "Employee delete error:",
+        "Schedule leave error:",
         error
       );
 
-
-      // ==========================================
-      // INVALID MONGODB ID
-      // ==========================================
 
       if (
         error.name ===
@@ -991,7 +1451,510 @@ app.delete(
         success: false,
 
         message:
-          "Failed to delete employee.",
+          "Failed to schedule leave.",
+
+        error:
+          error.message,
+
+      });
+
+    }
+
+  }
+);
+
+
+// ==================================================
+// GET ALL LEAVES
+//
+// GET /api/leaves
+//
+// Optional:
+// ?date=2026-08-26
+// ?status=Scheduled
+// ==================================================
+
+app.get(
+  "/api/leaves",
+  async (req, res) => {
+
+    try {
+
+      const {
+        date,
+        status,
+      } = req.query;
+
+
+      let filter = {};
+
+
+      // ==========================================
+      // STATUS FILTER
+      // ==========================================
+
+      if (status) {
+
+        filter.status =
+          status;
+
+      }
+
+
+      // ==========================================
+      // DATE FILTER
+      //
+      // Returns leave where selected date
+      // falls between startDate and endDate.
+      // ==========================================
+
+      if (date) {
+
+        filter.startDate = {
+          $lte:
+            date,
+        };
+
+        filter.endDate = {
+          $gte:
+            date,
+        };
+
+      }
+
+
+      const leaves =
+        await Leave.find(
+          filter
+        ).sort({
+
+          startDate: 1,
+
+          createdAt: -1,
+
+        });
+
+
+      console.log(
+        "Leaves fetched:"
+      );
+
+      console.log(
+        leaves
+      );
+
+
+      return res.status(200).json({
+
+        success: true,
+
+        message:
+          "Leave data fetched successfully.",
+
+        count:
+          leaves.length,
+
+        data:
+          leaves,
+
+      });
+
+    }
+    catch (error) {
+
+      console.error(
+        "Leave fetch error:",
+        error
+      );
+
+
+      return res.status(500).json({
+
+        success: false,
+
+        message:
+          "Failed to fetch leave data.",
+
+        error:
+          error.message,
+
+      });
+
+    }
+
+  }
+);
+
+
+// ==================================================
+// GET EMPLOYEE LEAVES
+//
+// GET /api/leaves/employee/:mobileNumber
+// ==================================================
+
+app.get(
+  "/api/leaves/employee/:mobileNumber",
+  async (req, res) => {
+
+    try {
+
+      const mobileNumber =
+        req.params.mobileNumber;
+
+
+      if (!mobileNumber) {
+
+        return res.status(400).json({
+
+          success: false,
+
+          message:
+            "Mobile number is required.",
+
+        });
+
+      }
+
+
+      const leaves =
+        await Leave.find({
+
+          mobileNumber:
+            mobileNumber,
+
+        }).sort({
+
+          startDate: -1,
+
+          createdAt: -1,
+
+        });
+
+
+      return res.status(200).json({
+
+        success: true,
+
+        message:
+          "Employee leave data fetched successfully.",
+
+        count:
+          leaves.length,
+
+        data:
+          leaves,
+
+      });
+
+    }
+    catch (error) {
+
+      console.error(
+        "Employee leave fetch error:",
+        error
+      );
+
+
+      return res.status(500).json({
+
+        success: false,
+
+        message:
+          "Failed to fetch employee leave data.",
+
+        error:
+          error.message,
+
+      });
+
+    }
+
+  }
+);
+
+
+// ==================================================
+// GET SINGLE LEAVE
+//
+// GET /api/leaves/:id
+// ==================================================
+
+app.get(
+  "/api/leaves/:id",
+  async (req, res) => {
+
+    try {
+
+      const leave =
+        await Leave.findById(
+          req.params.id
+        );
+
+
+      if (!leave) {
+
+        return res.status(404).json({
+
+          success: false,
+
+          message:
+            "Leave not found.",
+
+        });
+
+      }
+
+
+      return res.status(200).json({
+
+        success: true,
+
+        message:
+          "Leave fetched successfully.",
+
+        data:
+          leave,
+
+      });
+
+    }
+    catch (error) {
+
+      console.error(
+        "Single leave fetch error:",
+        error
+      );
+
+
+      if (
+        error.name ===
+        "CastError"
+      ) {
+
+        return res.status(400).json({
+
+          success: false,
+
+          message:
+            "Invalid leave ID.",
+
+        });
+
+      }
+
+
+      return res.status(500).json({
+
+        success: false,
+
+        message:
+          "Failed to fetch leave.",
+
+        error:
+          error.message,
+
+      });
+
+    }
+
+  }
+);
+
+
+// ==================================================
+// CANCEL LEAVE
+//
+// PUT /api/leaves/:id/cancel
+// ==================================================
+
+app.put(
+  "/api/leaves/:id/cancel",
+  async (req, res) => {
+
+    try {
+
+      const leave =
+        await Leave.findById(
+          req.params.id
+        );
+
+
+      if (!leave) {
+
+        return res.status(404).json({
+
+          success: false,
+
+          message:
+            "Leave not found.",
+
+        });
+
+      }
+
+
+      if (
+        leave.status ===
+        "Cancelled"
+      ) {
+
+        return res.status(400).json({
+
+          success: false,
+
+          message:
+            "Leave is already cancelled.",
+
+        });
+
+      }
+
+
+      leave.status =
+        "Cancelled";
+
+
+      const updatedLeave =
+        await leave.save();
+
+
+      return res.status(200).json({
+
+        success: true,
+
+        message:
+          "Leave cancelled successfully.",
+
+        data:
+          updatedLeave,
+
+      });
+
+    }
+    catch (error) {
+
+      console.error(
+        "Cancel leave error:",
+        error
+      );
+
+
+      if (
+        error.name ===
+        "CastError"
+      ) {
+
+        return res.status(400).json({
+
+          success: false,
+
+          message:
+            "Invalid leave ID.",
+
+        });
+
+      }
+
+
+      return res.status(500).json({
+
+        success: false,
+
+        message:
+          "Failed to cancel leave.",
+
+        error:
+          error.message,
+
+      });
+
+    }
+
+  }
+);
+
+
+// ==================================================
+// DELETE LEAVE
+//
+// DELETE /api/leaves/:id
+// ==================================================
+
+app.delete(
+  "/api/leaves/:id",
+  async (req, res) => {
+
+    try {
+
+      const leave =
+        await Leave.findById(
+          req.params.id
+        );
+
+
+      if (!leave) {
+
+        return res.status(404).json({
+
+          success: false,
+
+          message:
+            "Leave not found.",
+
+        });
+
+      }
+
+
+      await Leave.findByIdAndDelete(
+        req.params.id
+      );
+
+
+      return res.status(200).json({
+
+        success: true,
+
+        message:
+          "Leave deleted successfully.",
+
+        data:
+          leave,
+
+      });
+
+    }
+    catch (error) {
+
+      console.error(
+        "Delete leave error:",
+        error
+      );
+
+
+      if (
+        error.name ===
+        "CastError"
+      ) {
+
+        return res.status(400).json({
+
+          success: false,
+
+          message:
+            "Invalid leave ID.",
+
+        });
+
+      }
+
+
+      return res.status(500).json({
+
+        success: false,
+
+        message:
+          "Failed to delete leave.",
 
         error:
           error.message,
