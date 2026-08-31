@@ -26,7 +26,9 @@ app.use(express.json());
 // ==================================================
 
 mongoose
-  .connect(process.env.MONGODB_URI)
+  .connect(
+  "mongodb+srv://wings:wings@cluster0.epqncfr.mongodb.net/attendance")
+
   .then(() => {
     console.log("MongoDB connected successfully");
   })
