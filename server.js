@@ -26,9 +26,7 @@ app.use(express.json());
 // ==================================================
 
 mongoose
-  .connect(
-    "mongodb+srv://wings:wings@cluster0.epqncfr.mongodb.net/attendance"
-  )
+  .connect(process.env.MONGODB_URI)
   .then(() => {
     console.log("MongoDB connected successfully");
   })
@@ -42,9 +40,11 @@ mongoose
 
 // ==================================================
 // REVERSE GEOCODING
-// latitude + longitude
-//        ↓
-// readable location name
+// LATITUDE + LONGITUDE
+//          ↓
+// DETAILED ADDRESS
+//          ↓
+// Layout, Area, City, State, PIN
 // ==================================================
 
 const getLocationName = async (
@@ -53,8 +53,20 @@ const getLocationName = async (
 ) => {
   try {
     console.log(
-      "Getting location name for:",
-      latitude,
+      "================================"
+    );
+
+    console.log(
+      "Getting detailed location for:"
+    );
+
+    console.log(
+      "Latitude:",
+      latitude
+    );
+
+    console.log(
+      "Longitude:",
       longitude
     );
 
@@ -64,9 +76,14 @@ const getLocationName = async (
         params: {
           lat: latitude,
           lon: longitude,
+
           format: "json",
+
           addressdetails: 1,
+
           zoom: 18,
+
+          "accept-language": "en",
         },
 
         headers: {
@@ -74,28 +91,332 @@ const getLocationName = async (
             "AttendanceManagementSystem/1.0",
         },
 
-        timeout: 10000,
+        timeout: 15000,
       }
     );
 
-    if (
-      response.data &&
-      response.data.display_name
-    ) {
-      console.log(
-        "Location found:",
-        response.data.display_name
-      );
 
-      return response.data.display_name;
+    const address =
+      response.data?.address;
+
+
+    console.log(
+      "Full reverse geocoding response:"
+    );
+
+    console.log(
+      response.data
+    );
+
+
+    if (!address) {
+      return "Location unavailable";
     }
 
-    return "Location unavailable";
+
+    // ==================================================
+    // ADDRESS COMPONENTS
+    // ==================================================
+
+    /*
+      Nominatim can return different fields
+      depending on the exact location.
+
+      Examples:
+
+      road
+      neighbourhood
+      suburb
+      village
+      town
+      city
+      municipality
+      district
+      state
+      postcode
+      country
+    */
+
+
+    const road =
+      address.road ||
+      "";
+
+    const neighbourhood =
+      address.neighbourhood ||
+      "";
+
+    const suburb =
+      address.suburb ||
+      "";
+
+    const quarter =
+      address.quarter ||
+      "";
+
+    const cityDistrict =
+      address.city_district ||
+      "";
+
+    const village =
+      address.village ||
+      "";
+
+    const town =
+      address.town ||
+      "";
+
+    const city =
+      address.city ||
+      "";
+
+    const municipality =
+      address.municipality ||
+      "";
+
+    const district =
+      address.state_district ||
+      address.district ||
+      "";
+
+    const state =
+      address.state ||
+      "";
+
+    const postcode =
+      address.postcode ||
+      "";
+
+
+    // ==================================================
+    // FIND CITY
+    // ==================================================
+
+    const cityName =
+      city ||
+      town ||
+      village ||
+      municipality ||
+      "";
+
+
+    // ==================================================
+    // BUILD LOCALITY / AREA
+    // ==================================================
+
+    const localityParts = [];
+
+
+    /*
+      We prioritize smaller/local areas.
+
+      Example:
+
+      Raut Layout
+      Zingabai Takli
+      Nagpur
+      Maharashtra
+      440030
+    */
+
+
+    if (neighbourhood) {
+      localityParts.push(
+        neighbourhood
+      );
+    }
+
+
+    if (
+      suburb &&
+      suburb !== neighbourhood
+    ) {
+      localityParts.push(
+        suburb
+      );
+    }
+
+
+    if (
+      quarter &&
+      !localityParts.includes(quarter)
+    ) {
+      localityParts.push(
+        quarter
+      );
+    }
+
+
+    if (
+      cityDistrict &&
+      !localityParts.includes(cityDistrict)
+    ) {
+      localityParts.push(
+        cityDistrict
+      );
+    }
+
+
+    // ==================================================
+    // ADD ROAD
+    // ==================================================
+
+    /*
+      We add the road only when available.
+
+      Example:
+
+      "Raut Layout, Zingabai Takli, ..."
+    */
+
+    if (
+      road &&
+      !localityParts.includes(road)
+    ) {
+      localityParts.unshift(
+        road
+      );
+    }
+
+
+    // ==================================================
+    // REMOVE DUPLICATES
+    // ==================================================
+
+    const uniqueLocalityParts =
+      [
+        ...new Set(
+          localityParts.filter(
+            Boolean
+          )
+        ),
+      ];
+
+
+    // ==================================================
+    // CREATE FINAL ADDRESS
+    // ==================================================
+
+    const addressParts = [];
+
+
+    // Locality / Layout / Road
+    addressParts.push(
+      ...uniqueLocalityParts
+    );
+
+
+    // City
+    if (
+      cityName &&
+      !addressParts.includes(
+        cityName
+      )
+    ) {
+      addressParts.push(
+        cityName
+      );
+    }
+
+
+    // District
+    /*
+      Don't add district if it is the
+      same as the city.
+    */
+
+    if (
+      district &&
+      district !== cityName &&
+      !addressParts.includes(
+        district
+      )
+    ) {
+      addressParts.push(
+        district
+      );
+    }
+
+
+    // State
+    if (
+      state &&
+      !addressParts.includes(
+        state
+      )
+    ) {
+      addressParts.push(
+        state
+      );
+    }
+
+
+    // PIN CODE
+    if (postcode) {
+      addressParts.push(
+        postcode
+      );
+    }
+
+
+    // ==================================================
+    // FINAL LOCATION NAME
+    // ==================================================
+
+    const locationName =
+      addressParts
+        .filter(Boolean)
+        .join(", ");
+
+
+    console.log(
+      "Formatted location:"
+    );
+
+    console.log(
+      locationName
+    );
+
+    console.log(
+      "================================"
+    );
+
+
+    return (
+      locationName ||
+      response.data?.display_name ||
+      "Location unavailable"
+    );
+
   } catch (error) {
+
     console.error(
-      "Reverse geocoding error:",
+      "================================"
+    );
+
+    console.error(
+      "REVERSE GEOCODING ERROR"
+    );
+
+    console.error(
+      "Message:",
       error.message
     );
+
+    console.error(
+      "Status:",
+      error.response?.status
+    );
+
+    console.error(
+      "Response:",
+      error.response?.data
+    );
+
+    console.error(
+      "================================"
+    );
+
 
     return "Location unavailable";
   }
@@ -128,7 +449,9 @@ app.get(
 app.post(
   "/api/attendance",
   async (req, res) => {
+
     try {
+
       console.log(
         "================================"
       );
@@ -160,20 +483,26 @@ app.post(
       // ==========================================
 
       if (!mobileNumber) {
+
         return res.status(400).json({
           success: false,
+
           message:
             "Mobile number is required.",
         });
+
       }
 
 
       if (!date) {
+
         return res.status(400).json({
           success: false,
+
           message:
             "Date is required.",
         });
+
       }
 
 
@@ -181,25 +510,31 @@ app.post(
         latitude === undefined ||
         longitude === undefined
       ) {
+
         return res.status(400).json({
           success: false,
+
           message:
             "Location is required.",
         });
+
       }
 
 
       if (accuracy === undefined) {
+
         return res.status(400).json({
           success: false,
+
           message:
             "Location accuracy is required.",
         });
+
       }
 
 
       // ==========================================
-      // GET LOCATION NAME
+      // GET DETAILED LOCATION
       // ==========================================
 
       const locationName =
@@ -221,6 +556,7 @@ app.post(
 
       const attendance =
         new Attendance({
+
           mobileNumber,
 
           date,
@@ -235,6 +571,7 @@ app.post(
           accuracy,
 
           locationName,
+
         });
 
 
@@ -260,6 +597,7 @@ app.post(
       // ==========================================
 
       return res.status(201).json({
+
         success: true,
 
         message:
@@ -267,9 +605,11 @@ app.post(
 
         data:
           savedAttendance,
+
       });
 
     } catch (error) {
+
       console.error(
         "Attendance save error:",
         error
@@ -277,6 +617,7 @@ app.post(
 
 
       return res.status(500).json({
+
         success: false,
 
         message:
@@ -284,8 +625,11 @@ app.post(
 
         error:
           error.message,
+
       });
+
     }
+
   }
 );
 
@@ -297,7 +641,9 @@ app.post(
 app.get(
   "/api/attendance",
   async (req, res) => {
+
     try {
+
       const attendanceData =
         await Attendance.find()
           .sort({
@@ -315,6 +661,7 @@ app.get(
 
 
       return res.status(200).json({
+
         success: true,
 
         message:
@@ -325,9 +672,11 @@ app.get(
 
         data:
           attendanceData,
+
       });
 
     } catch (error) {
+
       console.error(
         "Attendance fetch error:",
         error
@@ -335,6 +684,7 @@ app.get(
 
 
       return res.status(500).json({
+
         success: false,
 
         message:
@@ -342,8 +692,11 @@ app.get(
 
         error:
           error.message,
+
       });
+
     }
+
   }
 );
 
@@ -356,31 +709,42 @@ app.get(
 app.get(
   "/api/attendance/employee/:mobileNumber",
   async (req, res) => {
+
     try {
+
       const mobileNumber =
         req.params.mobileNumber;
 
 
       if (!mobileNumber) {
+
         return res.status(400).json({
+
           success: false,
 
           message:
             "Mobile number is required.",
+
         });
+
       }
 
 
       const attendance =
         await Attendance.find({
+
           mobileNumber:
             mobileNumber,
+
         }).sort({
+
           timestamp: -1,
+
         });
 
 
       return res.status(200).json({
+
         success: true,
 
         message:
@@ -391,9 +755,11 @@ app.get(
 
         data:
           attendance,
+
       });
 
     } catch (error) {
+
       console.error(
         "Employee attendance fetch error:",
         error
@@ -401,6 +767,7 @@ app.get(
 
 
       return res.status(500).json({
+
         success: false,
 
         message:
@@ -408,8 +775,11 @@ app.get(
 
         error:
           error.message,
+
       });
+
     }
+
   }
 );
 
@@ -427,7 +797,9 @@ app.get(
 app.post(
   "/api/employees",
   async (req, res) => {
+
     try {
+
       console.log(
         "================================"
       );
@@ -458,12 +830,16 @@ app.post(
       // ==========================================
 
       if (!name || !name.trim()) {
+
         return res.status(400).json({
+
           success: false,
 
           message:
             "Employee name is required.",
+
         });
+
       }
 
 
@@ -471,22 +847,30 @@ app.post(
         !mobileNumber ||
         !mobileNumber.trim()
       ) {
+
         return res.status(400).json({
+
           success: false,
 
           message:
             "Mobile number is required.",
+
         });
+
       }
 
 
       if (!joiningDate) {
+
         return res.status(400).json({
+
           success: false,
 
           message:
             "Joining date is required.",
+
         });
+
       }
 
 
@@ -499,12 +883,16 @@ app.post(
           mobileNumber
         )
       ) {
+
         return res.status(400).json({
+
           success: false,
 
           message:
             "Mobile number must contain exactly 10 digits.",
+
         });
+
       }
 
 
@@ -514,18 +902,24 @@ app.post(
 
       const existingEmployee =
         await Employee.findOne({
+
           mobileNumber:
             mobileNumber,
+
         });
 
 
       if (existingEmployee) {
+
         return res.status(409).json({
+
           success: false,
 
           message:
             "Employee with this mobile number already exists.",
+
         });
+
       }
 
 
@@ -535,6 +929,7 @@ app.post(
 
       const employee =
         new Employee({
+
           name:
             name.trim(),
 
@@ -548,6 +943,7 @@ app.post(
 
           joiningDate:
             joiningDate,
+
         });
 
 
@@ -569,6 +965,7 @@ app.post(
 
 
       return res.status(201).json({
+
         success: true,
 
         message:
@@ -576,9 +973,11 @@ app.post(
 
         data:
           savedEmployee,
+
       });
 
     } catch (error) {
+
       console.error(
         "Employee creation error:",
         error
@@ -586,6 +985,7 @@ app.post(
 
 
       return res.status(500).json({
+
         success: false,
 
         message:
@@ -593,8 +993,11 @@ app.post(
 
         error:
           error.message,
+
       });
+
     }
+
   }
 );
 
@@ -607,7 +1010,9 @@ app.post(
 app.get(
   "/api/employees",
   async (req, res) => {
+
     try {
+
       const employees =
         await Employee.find()
           .sort({
@@ -625,6 +1030,7 @@ app.get(
 
 
       return res.status(200).json({
+
         success: true,
 
         message:
@@ -635,9 +1041,11 @@ app.get(
 
         data:
           employees,
+
       });
 
     } catch (error) {
+
       console.error(
         "Employee fetch error:",
         error
@@ -645,6 +1053,7 @@ app.get(
 
 
       return res.status(500).json({
+
         success: false,
 
         message:
@@ -652,8 +1061,11 @@ app.get(
 
         error:
           error.message,
+
       });
+
     }
+
   }
 );
 
@@ -666,7 +1078,9 @@ app.get(
 app.get(
   "/api/employees/:id",
   async (req, res) => {
+
     try {
+
       const employeeId =
         req.params.id;
 
@@ -678,16 +1092,21 @@ app.get(
 
 
       if (!employee) {
+
         return res.status(404).json({
+
           success: false,
 
           message:
             "Employee not found.",
+
         });
+
       }
 
 
       return res.status(200).json({
+
         success: true,
 
         message:
@@ -695,9 +1114,11 @@ app.get(
 
         data:
           employee,
+
       });
 
     } catch (error) {
+
       console.error(
         "Employee fetch error:",
         error
@@ -708,16 +1129,21 @@ app.get(
         error.name ===
         "CastError"
       ) {
+
         return res.status(400).json({
+
           success: false,
 
           message:
             "Invalid employee ID.",
+
         });
+
       }
 
 
       return res.status(500).json({
+
         success: false,
 
         message:
@@ -725,8 +1151,11 @@ app.get(
 
         error:
           error.message,
+
       });
+
     }
+
   }
 );
 
@@ -739,7 +1168,9 @@ app.get(
 app.put(
   "/api/employees/:id",
   async (req, res) => {
+
     try {
+
       console.log(
         "================================"
       );
@@ -780,12 +1211,16 @@ app.put(
       // ==========================================
 
       if (!name || !name.trim()) {
+
         return res.status(400).json({
+
           success: false,
 
           message:
             "Employee name is required.",
+
         });
+
       }
 
 
@@ -793,22 +1228,30 @@ app.put(
         !mobileNumber ||
         !mobileNumber.trim()
       ) {
+
         return res.status(400).json({
+
           success: false,
 
           message:
             "Mobile number is required.",
+
         });
+
       }
 
 
       if (!joiningDate) {
+
         return res.status(400).json({
+
           success: false,
 
           message:
             "Joining date is required.",
+
         });
+
       }
 
 
@@ -817,12 +1260,16 @@ app.put(
           mobileNumber
         )
       ) {
+
         return res.status(400).json({
+
           success: false,
 
           message:
             "Mobile number must contain exactly 10 digits.",
+
         });
+
       }
 
 
@@ -837,12 +1284,16 @@ app.put(
 
 
       if (!employee) {
+
         return res.status(404).json({
+
           success: false,
 
           message:
             "Employee not found.",
+
         });
+
       }
 
 
@@ -852,6 +1303,7 @@ app.put(
 
       const existingEmployee =
         await Employee.findOne({
+
           mobileNumber:
             mobileNumber,
 
@@ -859,16 +1311,21 @@ app.put(
             $ne:
               employeeId,
           },
+
         });
 
 
       if (existingEmployee) {
+
         return res.status(409).json({
+
           success: false,
 
           message:
             "Another employee with this mobile number already exists.",
+
         });
+
       }
 
 
@@ -909,6 +1366,7 @@ app.put(
 
 
       return res.status(200).json({
+
         success: true,
 
         message:
@@ -916,9 +1374,11 @@ app.put(
 
         data:
           updatedEmployee,
+
       });
 
     } catch (error) {
+
       console.error(
         "Employee update error:",
         error
@@ -929,16 +1389,21 @@ app.put(
         error.name ===
         "CastError"
       ) {
+
         return res.status(400).json({
+
           success: false,
 
           message:
             "Invalid employee ID.",
+
         });
+
       }
 
 
       return res.status(500).json({
+
         success: false,
 
         message:
@@ -946,8 +1411,11 @@ app.put(
 
         error:
           error.message,
+
       });
+
     }
+
   }
 );
 
@@ -960,7 +1428,9 @@ app.put(
 app.delete(
   "/api/employees/:id",
   async (req, res) => {
+
     try {
+
       console.log(
         "================================"
       );
@@ -990,12 +1460,16 @@ app.delete(
 
 
       if (!employee) {
+
         return res.status(404).json({
+
           success: false,
 
           message:
             "Employee not found.",
+
         });
+
       }
 
 
@@ -1014,6 +1488,7 @@ app.delete(
 
 
       return res.status(200).json({
+
         success: true,
 
         message:
@@ -1021,9 +1496,11 @@ app.delete(
 
         data:
           employee,
+
       });
 
     } catch (error) {
+
       console.error(
         "Employee delete error:",
         error
@@ -1034,16 +1511,21 @@ app.delete(
         error.name ===
         "CastError"
       ) {
+
         return res.status(400).json({
+
           success: false,
 
           message:
             "Invalid employee ID.",
+
         });
+
       }
 
 
       return res.status(500).json({
+
         success: false,
 
         message:
@@ -1051,8 +1533,11 @@ app.delete(
 
         error:
           error.message,
+
       });
+
     }
+
   }
 );
 
@@ -1070,7 +1555,9 @@ app.delete(
 app.post(
   "/api/leaves",
   async (req, res) => {
+
     try {
+
       console.log(
         "================================"
       );
@@ -1102,32 +1589,44 @@ app.post(
       // ==========================================
 
       if (!employeeId) {
+
         return res.status(400).json({
+
           success: false,
 
           message:
             "Employee is required.",
+
         });
+
       }
 
 
       if (!startDate) {
+
         return res.status(400).json({
+
           success: false,
 
           message:
             "Start date is required.",
+
         });
+
       }
 
 
       if (!endDate) {
+
         return res.status(400).json({
+
           success: false,
 
           message:
             "End date is required.",
+
         });
+
       }
 
 
@@ -1150,22 +1649,30 @@ app.post(
           end.getTime()
         )
       ) {
+
         return res.status(400).json({
+
           success: false,
 
           message:
             "Invalid leave date.",
+
         });
+
       }
 
 
       if (start > end) {
+
         return res.status(400).json({
+
           success: false,
 
           message:
             "End date cannot be before start date.",
+
         });
+
       }
 
 
@@ -1180,12 +1687,16 @@ app.post(
 
 
       if (!employee) {
+
         return res.status(404).json({
+
           success: false,
 
           message:
             "Employee not found.",
+
         });
+
       }
 
 
@@ -1195,6 +1706,7 @@ app.post(
 
       const overlappingLeave =
         await Leave.findOne({
+
           employeeId:
             employee._id,
 
@@ -1210,11 +1722,14 @@ app.post(
             $gte:
               startDate,
           },
+
         });
 
 
       if (overlappingLeave) {
+
         return res.status(409).json({
+
           success: false,
 
           message:
@@ -1222,7 +1737,9 @@ app.post(
 
           data:
             overlappingLeave,
+
         });
+
       }
 
 
@@ -1232,6 +1749,7 @@ app.post(
 
       const leave =
         new Leave({
+
           employeeId:
             employee._id,
 
@@ -1258,6 +1776,7 @@ app.post(
 
           status:
             "Scheduled",
+
         });
 
 
@@ -1278,11 +1797,8 @@ app.post(
       );
 
 
-      // ==========================================
-      // RESPONSE
-      // ==========================================
-
       return res.status(201).json({
+
         success: true,
 
         message:
@@ -1290,9 +1806,11 @@ app.post(
 
         data:
           savedLeave,
+
       });
 
     } catch (error) {
+
       console.error(
         "Schedule leave error:",
         error
@@ -1303,16 +1821,21 @@ app.post(
         error.name ===
         "CastError"
       ) {
+
         return res.status(400).json({
+
           success: false,
 
           message:
             "Invalid employee ID.",
+
         });
+
       }
 
 
       return res.status(500).json({
+
         success: false,
 
         message:
@@ -1320,8 +1843,11 @@ app.post(
 
         error:
           error.message,
+
       });
+
     }
+
   }
 );
 
@@ -1334,7 +1860,9 @@ app.post(
 app.get(
   "/api/leaves",
   async (req, res) => {
+
     try {
+
       const {
         date,
         status,
@@ -1349,8 +1877,10 @@ app.get(
       // ==========================================
 
       if (status) {
+
         filter.status =
           status;
+
       }
 
 
@@ -1359,6 +1889,7 @@ app.get(
       // ==========================================
 
       if (date) {
+
         filter.startDate = {
           $lte:
             date,
@@ -1368,6 +1899,7 @@ app.get(
           $gte:
             date,
         };
+
       }
 
 
@@ -1375,9 +1907,11 @@ app.get(
         await Leave.find(
           filter
         ).sort({
+
           startDate: 1,
 
           createdAt: -1,
+
         });
 
 
@@ -1391,6 +1925,7 @@ app.get(
 
 
       return res.status(200).json({
+
         success: true,
 
         message:
@@ -1401,9 +1936,11 @@ app.get(
 
         data:
           leaves,
+
       });
 
     } catch (error) {
+
       console.error(
         "Leave fetch error:",
         error
@@ -1411,6 +1948,7 @@ app.get(
 
 
       return res.status(500).json({
+
         success: false,
 
         message:
@@ -1418,8 +1956,11 @@ app.get(
 
         error:
           error.message,
+
       });
+
     }
+
   }
 );
 
@@ -1432,33 +1973,44 @@ app.get(
 app.get(
   "/api/leaves/employee/:mobileNumber",
   async (req, res) => {
+
     try {
+
       const mobileNumber =
         req.params.mobileNumber;
 
 
       if (!mobileNumber) {
+
         return res.status(400).json({
+
           success: false,
 
           message:
             "Mobile number is required.",
+
         });
+
       }
 
 
       const leaves =
         await Leave.find({
+
           mobileNumber:
             mobileNumber,
+
         }).sort({
+
           startDate: -1,
 
           createdAt: -1,
+
         });
 
 
       return res.status(200).json({
+
         success: true,
 
         message:
@@ -1469,9 +2021,11 @@ app.get(
 
         data:
           leaves,
+
       });
 
     } catch (error) {
+
       console.error(
         "Employee leave fetch error:",
         error
@@ -1479,6 +2033,7 @@ app.get(
 
 
       return res.status(500).json({
+
         success: false,
 
         message:
@@ -1486,8 +2041,11 @@ app.get(
 
         error:
           error.message,
+
       });
+
     }
+
   }
 );
 
@@ -1500,7 +2058,9 @@ app.get(
 app.get(
   "/api/leaves/:id",
   async (req, res) => {
+
     try {
+
       const leave =
         await Leave.findById(
           req.params.id
@@ -1508,16 +2068,21 @@ app.get(
 
 
       if (!leave) {
+
         return res.status(404).json({
+
           success: false,
 
           message:
             "Leave not found.",
+
         });
+
       }
 
 
       return res.status(200).json({
+
         success: true,
 
         message:
@@ -1525,9 +2090,11 @@ app.get(
 
         data:
           leave,
+
       });
 
     } catch (error) {
+
       console.error(
         "Single leave fetch error:",
         error
@@ -1538,16 +2105,21 @@ app.get(
         error.name ===
         "CastError"
       ) {
+
         return res.status(400).json({
+
           success: false,
 
           message:
             "Invalid leave ID.",
+
         });
+
       }
 
 
       return res.status(500).json({
+
         success: false,
 
         message:
@@ -1555,8 +2127,11 @@ app.get(
 
         error:
           error.message,
+
       });
+
     }
+
   }
 );
 
@@ -1569,7 +2144,9 @@ app.get(
 app.put(
   "/api/leaves/:id/cancel",
   async (req, res) => {
+
     try {
+
       const leave =
         await Leave.findById(
           req.params.id
@@ -1577,12 +2154,16 @@ app.put(
 
 
       if (!leave) {
+
         return res.status(404).json({
+
           success: false,
 
           message:
             "Leave not found.",
+
         });
+
       }
 
 
@@ -1590,12 +2171,16 @@ app.put(
         leave.status ===
         "Cancelled"
       ) {
+
         return res.status(400).json({
+
           success: false,
 
           message:
             "Leave is already cancelled.",
+
         });
+
       }
 
 
@@ -1608,6 +2193,7 @@ app.put(
 
 
       return res.status(200).json({
+
         success: true,
 
         message:
@@ -1615,9 +2201,11 @@ app.put(
 
         data:
           updatedLeave,
+
       });
 
     } catch (error) {
+
       console.error(
         "Cancel leave error:",
         error
@@ -1628,16 +2216,21 @@ app.put(
         error.name ===
         "CastError"
       ) {
+
         return res.status(400).json({
+
           success: false,
 
           message:
             "Invalid leave ID.",
+
         });
+
       }
 
 
       return res.status(500).json({
+
         success: false,
 
         message:
@@ -1645,8 +2238,11 @@ app.put(
 
         error:
           error.message,
+
       });
+
     }
+
   }
 );
 
@@ -1659,7 +2255,9 @@ app.put(
 app.delete(
   "/api/leaves/:id",
   async (req, res) => {
+
     try {
+
       const leave =
         await Leave.findById(
           req.params.id
@@ -1667,12 +2265,16 @@ app.delete(
 
 
       if (!leave) {
+
         return res.status(404).json({
+
           success: false,
 
           message:
             "Leave not found.",
+
         });
+
       }
 
 
@@ -1682,6 +2284,7 @@ app.delete(
 
 
       return res.status(200).json({
+
         success: true,
 
         message:
@@ -1689,9 +2292,11 @@ app.delete(
 
         data:
           leave,
+
       });
 
     } catch (error) {
+
       console.error(
         "Delete leave error:",
         error
@@ -1702,16 +2307,21 @@ app.delete(
         error.name ===
         "CastError"
       ) {
+
         return res.status(400).json({
+
           success: false,
 
           message:
             "Invalid leave ID.",
+
         });
+
       }
 
 
       return res.status(500).json({
+
         success: false,
 
         message:
@@ -1719,8 +2329,11 @@ app.delete(
 
         error:
           error.message,
+
       });
+
     }
+
   }
 );
 
@@ -1732,8 +2345,10 @@ app.delete(
 app.listen(
   PORT,
   () => {
+
     console.log(
-      `Server running on http://localhost:${PORT}`
+      `Server running on port ${PORT}`
     );
+
   }
 );
