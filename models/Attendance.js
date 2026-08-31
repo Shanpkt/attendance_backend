@@ -31,6 +31,11 @@ const attendanceSchema = new mongoose.Schema(
       type: Number,
       required: true,
     },
+
+    locationName: {
+      type: String,
+      default: "Location unavailable",
+    },
   },
   {
     timestamps: true,

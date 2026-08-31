@@ -1,6 +1,7 @@
 const express = require("express");
 const cors = require("cors");
 const mongoose = require("mongoose");
+const axios = require("axios");
 
 const Attendance = require("./models/Attendance");
 const Employee = require("./models/Employee");
@@ -29,20 +30,76 @@ mongoose
     "mongodb+srv://wings:wings@cluster0.epqncfr.mongodb.net/attendance"
   )
   .then(() => {
-
-    console.log(
-      "MongoDB connected successfully"
-    );
-
+    console.log("MongoDB connected successfully");
   })
   .catch((error) => {
-
     console.error(
       "MongoDB connection error:",
       error
     );
-
   });
+
+
+// ==================================================
+// REVERSE GEOCODING
+// latitude + longitude
+//        ↓
+// readable location name
+// ==================================================
+
+const getLocationName = async (
+  latitude,
+  longitude
+) => {
+  try {
+    console.log(
+      "Getting location name for:",
+      latitude,
+      longitude
+    );
+
+    const response = await axios.get(
+      "https://nominatim.openstreetmap.org/reverse",
+      {
+        params: {
+          lat: latitude,
+          lon: longitude,
+          format: "json",
+          addressdetails: 1,
+          zoom: 18,
+        },
+
+        headers: {
+          "User-Agent":
+            "AttendanceManagementSystem/1.0",
+        },
+
+        timeout: 10000,
+      }
+    );
+
+    if (
+      response.data &&
+      response.data.display_name
+    ) {
+      console.log(
+        "Location found:",
+        response.data.display_name
+      );
+
+      return response.data.display_name;
+    }
+
+    return "Location unavailable";
+  } catch (error) {
+    console.error(
+      "Reverse geocoding error:",
+      error.message
+    );
+
+    return "Location unavailable";
+  }
+};
 
 
 // ==================================================
@@ -52,11 +109,9 @@ mongoose
 app.get(
   "/",
   (req, res) => {
-
     res.send(
       "Attendance Backend is working!"
     );
-
   }
 );
 
@@ -73,9 +128,7 @@ app.get(
 app.post(
   "/api/attendance",
   async (req, res) => {
-
     try {
-
       console.log(
         "================================"
       );
@@ -107,30 +160,20 @@ app.post(
       // ==========================================
 
       if (!mobileNumber) {
-
         return res.status(400).json({
-
           success: false,
-
           message:
             "Mobile number is required.",
-
         });
-
       }
 
 
       if (!date) {
-
         return res.status(400).json({
-
           success: false,
-
           message:
             "Date is required.",
-
         });
-
       }
 
 
@@ -138,17 +181,38 @@ app.post(
         latitude === undefined ||
         longitude === undefined
       ) {
-
         return res.status(400).json({
-
           success: false,
-
           message:
             "Location is required.",
-
         });
-
       }
+
+
+      if (accuracy === undefined) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Location accuracy is required.",
+        });
+      }
+
+
+      // ==========================================
+      // GET LOCATION NAME
+      // ==========================================
+
+      const locationName =
+        await getLocationName(
+          latitude,
+          longitude
+        );
+
+
+      console.log(
+        "Location name:",
+        locationName
+      );
 
 
       // ==========================================
@@ -157,7 +221,6 @@ app.post(
 
       const attendance =
         new Attendance({
-
           mobileNumber,
 
           date,
@@ -171,6 +234,7 @@ app.post(
 
           accuracy,
 
+          locationName,
         });
 
 
@@ -196,7 +260,6 @@ app.post(
       // ==========================================
 
       return res.status(201).json({
-
         success: true,
 
         message:
@@ -204,12 +267,9 @@ app.post(
 
         data:
           savedAttendance,
-
       });
 
-    }
-    catch (error) {
-
+    } catch (error) {
       console.error(
         "Attendance save error:",
         error
@@ -217,7 +277,6 @@ app.post(
 
 
       return res.status(500).json({
-
         success: false,
 
         message:
@@ -225,11 +284,8 @@ app.post(
 
         error:
           error.message,
-
       });
-
     }
-
   }
 );
 
@@ -241,9 +297,7 @@ app.post(
 app.get(
   "/api/attendance",
   async (req, res) => {
-
     try {
-
       const attendanceData =
         await Attendance.find()
           .sort({
@@ -261,7 +315,6 @@ app.get(
 
 
       return res.status(200).json({
-
         success: true,
 
         message:
@@ -272,12 +325,9 @@ app.get(
 
         data:
           attendanceData,
-
       });
 
-    }
-    catch (error) {
-
+    } catch (error) {
       console.error(
         "Attendance fetch error:",
         error
@@ -285,7 +335,6 @@ app.get(
 
 
       return res.status(500).json({
-
         success: false,
 
         message:
@@ -293,11 +342,8 @@ app.get(
 
         error:
           error.message,
-
       });
-
     }
-
   }
 );
 
@@ -310,42 +356,31 @@ app.get(
 app.get(
   "/api/attendance/employee/:mobileNumber",
   async (req, res) => {
-
     try {
-
       const mobileNumber =
         req.params.mobileNumber;
 
 
       if (!mobileNumber) {
-
         return res.status(400).json({
-
           success: false,
 
           message:
             "Mobile number is required.",
-
         });
-
       }
 
 
       const attendance =
         await Attendance.find({
-
           mobileNumber:
             mobileNumber,
-
         }).sort({
-
           timestamp: -1,
-
         });
 
 
       return res.status(200).json({
-
         success: true,
 
         message:
@@ -356,12 +391,9 @@ app.get(
 
         data:
           attendance,
-
       });
 
-    }
-    catch (error) {
-
+    } catch (error) {
       console.error(
         "Employee attendance fetch error:",
         error
@@ -369,7 +401,6 @@ app.get(
 
 
       return res.status(500).json({
-
         success: false,
 
         message:
@@ -377,11 +408,8 @@ app.get(
 
         error:
           error.message,
-
       });
-
     }
-
   }
 );
 
@@ -399,9 +427,7 @@ app.get(
 app.post(
   "/api/employees",
   async (req, res) => {
-
     try {
-
       console.log(
         "================================"
       );
@@ -432,16 +458,12 @@ app.post(
       // ==========================================
 
       if (!name || !name.trim()) {
-
         return res.status(400).json({
-
           success: false,
 
           message:
             "Employee name is required.",
-
         });
-
       }
 
 
@@ -449,30 +471,22 @@ app.post(
         !mobileNumber ||
         !mobileNumber.trim()
       ) {
-
         return res.status(400).json({
-
           success: false,
 
           message:
             "Mobile number is required.",
-
         });
-
       }
 
 
       if (!joiningDate) {
-
         return res.status(400).json({
-
           success: false,
 
           message:
             "Joining date is required.",
-
         });
-
       }
 
 
@@ -485,16 +499,12 @@ app.post(
           mobileNumber
         )
       ) {
-
         return res.status(400).json({
-
           success: false,
 
           message:
             "Mobile number must contain exactly 10 digits.",
-
         });
-
       }
 
 
@@ -504,24 +514,18 @@ app.post(
 
       const existingEmployee =
         await Employee.findOne({
-
           mobileNumber:
             mobileNumber,
-
         });
 
 
       if (existingEmployee) {
-
         return res.status(409).json({
-
           success: false,
 
           message:
             "Employee with this mobile number already exists.",
-
         });
-
       }
 
 
@@ -531,7 +535,6 @@ app.post(
 
       const employee =
         new Employee({
-
           name:
             name.trim(),
 
@@ -545,7 +548,6 @@ app.post(
 
           joiningDate:
             joiningDate,
-
         });
 
 
@@ -567,7 +569,6 @@ app.post(
 
 
       return res.status(201).json({
-
         success: true,
 
         message:
@@ -575,12 +576,9 @@ app.post(
 
         data:
           savedEmployee,
-
       });
 
-    }
-    catch (error) {
-
+    } catch (error) {
       console.error(
         "Employee creation error:",
         error
@@ -588,7 +586,6 @@ app.post(
 
 
       return res.status(500).json({
-
         success: false,
 
         message:
@@ -596,11 +593,8 @@ app.post(
 
         error:
           error.message,
-
       });
-
     }
-
   }
 );
 
@@ -613,9 +607,7 @@ app.post(
 app.get(
   "/api/employees",
   async (req, res) => {
-
     try {
-
       const employees =
         await Employee.find()
           .sort({
@@ -633,7 +625,6 @@ app.get(
 
 
       return res.status(200).json({
-
         success: true,
 
         message:
@@ -644,12 +635,9 @@ app.get(
 
         data:
           employees,
-
       });
 
-    }
-    catch (error) {
-
+    } catch (error) {
       console.error(
         "Employee fetch error:",
         error
@@ -657,7 +645,6 @@ app.get(
 
 
       return res.status(500).json({
-
         success: false,
 
         message:
@@ -665,11 +652,8 @@ app.get(
 
         error:
           error.message,
-
       });
-
     }
-
   }
 );
 
@@ -682,9 +666,7 @@ app.get(
 app.get(
   "/api/employees/:id",
   async (req, res) => {
-
     try {
-
       const employeeId =
         req.params.id;
 
@@ -696,21 +678,16 @@ app.get(
 
 
       if (!employee) {
-
         return res.status(404).json({
-
           success: false,
 
           message:
             "Employee not found.",
-
         });
-
       }
 
 
       return res.status(200).json({
-
         success: true,
 
         message:
@@ -718,12 +695,9 @@ app.get(
 
         data:
           employee,
-
       });
 
-    }
-    catch (error) {
-
+    } catch (error) {
       console.error(
         "Employee fetch error:",
         error
@@ -731,23 +705,19 @@ app.get(
 
 
       if (
-        error.name === "CastError"
+        error.name ===
+        "CastError"
       ) {
-
         return res.status(400).json({
-
           success: false,
 
           message:
             "Invalid employee ID.",
-
         });
-
       }
 
 
       return res.status(500).json({
-
         success: false,
 
         message:
@@ -755,11 +725,8 @@ app.get(
 
         error:
           error.message,
-
       });
-
     }
-
   }
 );
 
@@ -772,9 +739,7 @@ app.get(
 app.put(
   "/api/employees/:id",
   async (req, res) => {
-
     try {
-
       console.log(
         "================================"
       );
@@ -815,16 +780,12 @@ app.put(
       // ==========================================
 
       if (!name || !name.trim()) {
-
         return res.status(400).json({
-
           success: false,
 
           message:
             "Employee name is required.",
-
         });
-
       }
 
 
@@ -832,30 +793,22 @@ app.put(
         !mobileNumber ||
         !mobileNumber.trim()
       ) {
-
         return res.status(400).json({
-
           success: false,
 
           message:
             "Mobile number is required.",
-
         });
-
       }
 
 
       if (!joiningDate) {
-
         return res.status(400).json({
-
           success: false,
 
           message:
             "Joining date is required.",
-
         });
-
       }
 
 
@@ -864,16 +817,12 @@ app.put(
           mobileNumber
         )
       ) {
-
         return res.status(400).json({
-
           success: false,
 
           message:
             "Mobile number must contain exactly 10 digits.",
-
         });
-
       }
 
 
@@ -888,16 +837,12 @@ app.put(
 
 
       if (!employee) {
-
         return res.status(404).json({
-
           success: false,
 
           message:
             "Employee not found.",
-
         });
-
       }
 
 
@@ -907,7 +852,6 @@ app.put(
 
       const existingEmployee =
         await Employee.findOne({
-
           mobileNumber:
             mobileNumber,
 
@@ -915,21 +859,16 @@ app.put(
             $ne:
               employeeId,
           },
-
         });
 
 
       if (existingEmployee) {
-
         return res.status(409).json({
-
           success: false,
 
           message:
             "Another employee with this mobile number already exists.",
-
         });
-
       }
 
 
@@ -970,7 +909,6 @@ app.put(
 
 
       return res.status(200).json({
-
         success: true,
 
         message:
@@ -978,12 +916,9 @@ app.put(
 
         data:
           updatedEmployee,
-
       });
 
-    }
-    catch (error) {
-
+    } catch (error) {
       console.error(
         "Employee update error:",
         error
@@ -994,21 +929,16 @@ app.put(
         error.name ===
         "CastError"
       ) {
-
         return res.status(400).json({
-
           success: false,
 
           message:
             "Invalid employee ID.",
-
         });
-
       }
 
 
       return res.status(500).json({
-
         success: false,
 
         message:
@@ -1016,11 +946,8 @@ app.put(
 
         error:
           error.message,
-
       });
-
     }
-
   }
 );
 
@@ -1033,9 +960,7 @@ app.put(
 app.delete(
   "/api/employees/:id",
   async (req, res) => {
-
     try {
-
       console.log(
         "================================"
       );
@@ -1065,16 +990,12 @@ app.delete(
 
 
       if (!employee) {
-
         return res.status(404).json({
-
           success: false,
 
           message:
             "Employee not found.",
-
         });
-
       }
 
 
@@ -1093,7 +1014,6 @@ app.delete(
 
 
       return res.status(200).json({
-
         success: true,
 
         message:
@@ -1101,12 +1021,9 @@ app.delete(
 
         data:
           employee,
-
       });
 
-    }
-    catch (error) {
-
+    } catch (error) {
       console.error(
         "Employee delete error:",
         error
@@ -1117,21 +1034,16 @@ app.delete(
         error.name ===
         "CastError"
       ) {
-
         return res.status(400).json({
-
           success: false,
 
           message:
             "Invalid employee ID.",
-
         });
-
       }
 
 
       return res.status(500).json({
-
         success: false,
 
         message:
@@ -1139,11 +1051,8 @@ app.delete(
 
         error:
           error.message,
-
       });
-
     }
-
   }
 );
 
@@ -1155,16 +1064,13 @@ app.delete(
 
 // ==================================================
 // SCHEDULE LEAVE
-//
 // POST /api/leaves
 // ==================================================
 
 app.post(
   "/api/leaves",
   async (req, res) => {
-
     try {
-
       console.log(
         "================================"
       );
@@ -1196,44 +1102,32 @@ app.post(
       // ==========================================
 
       if (!employeeId) {
-
         return res.status(400).json({
-
           success: false,
 
           message:
             "Employee is required.",
-
         });
-
       }
 
 
       if (!startDate) {
-
         return res.status(400).json({
-
           success: false,
 
           message:
             "Start date is required.",
-
         });
-
       }
 
 
       if (!endDate) {
-
         return res.status(400).json({
-
           success: false,
 
           message:
             "End date is required.",
-
         });
-
       }
 
 
@@ -1256,30 +1150,22 @@ app.post(
           end.getTime()
         )
       ) {
-
         return res.status(400).json({
-
           success: false,
 
           message:
             "Invalid leave date.",
-
         });
-
       }
 
 
       if (start > end) {
-
         return res.status(400).json({
-
           success: false,
 
           message:
             "End date cannot be before start date.",
-
         });
-
       }
 
 
@@ -1294,16 +1180,12 @@ app.post(
 
 
       if (!employee) {
-
         return res.status(404).json({
-
           success: false,
 
           message:
             "Employee not found.",
-
         });
-
       }
 
 
@@ -1313,7 +1195,6 @@ app.post(
 
       const overlappingLeave =
         await Leave.findOne({
-
           employeeId:
             employee._id,
 
@@ -1329,14 +1210,11 @@ app.post(
             $gte:
               startDate,
           },
-
         });
 
 
       if (overlappingLeave) {
-
         return res.status(409).json({
-
           success: false,
 
           message:
@@ -1344,9 +1222,7 @@ app.post(
 
           data:
             overlappingLeave,
-
         });
-
       }
 
 
@@ -1356,7 +1232,6 @@ app.post(
 
       const leave =
         new Leave({
-
           employeeId:
             employee._id,
 
@@ -1383,7 +1258,6 @@ app.post(
 
           status:
             "Scheduled",
-
         });
 
 
@@ -1409,7 +1283,6 @@ app.post(
       // ==========================================
 
       return res.status(201).json({
-
         success: true,
 
         message:
@@ -1417,12 +1290,9 @@ app.post(
 
         data:
           savedLeave,
-
       });
 
-    }
-    catch (error) {
-
+    } catch (error) {
       console.error(
         "Schedule leave error:",
         error
@@ -1433,21 +1303,16 @@ app.post(
         error.name ===
         "CastError"
       ) {
-
         return res.status(400).json({
-
           success: false,
 
           message:
             "Invalid employee ID.",
-
         });
-
       }
 
 
       return res.status(500).json({
-
         success: false,
 
         message:
@@ -1455,31 +1320,21 @@ app.post(
 
         error:
           error.message,
-
       });
-
     }
-
   }
 );
 
 
 // ==================================================
 // GET ALL LEAVES
-//
 // GET /api/leaves
-//
-// Optional:
-// ?date=2026-08-26
-// ?status=Scheduled
 // ==================================================
 
 app.get(
   "/api/leaves",
   async (req, res) => {
-
     try {
-
       const {
         date,
         status,
@@ -1494,22 +1349,16 @@ app.get(
       // ==========================================
 
       if (status) {
-
         filter.status =
           status;
-
       }
 
 
       // ==========================================
       // DATE FILTER
-      //
-      // Returns leave where selected date
-      // falls between startDate and endDate.
       // ==========================================
 
       if (date) {
-
         filter.startDate = {
           $lte:
             date,
@@ -1519,7 +1368,6 @@ app.get(
           $gte:
             date,
         };
-
       }
 
 
@@ -1527,11 +1375,9 @@ app.get(
         await Leave.find(
           filter
         ).sort({
-
           startDate: 1,
 
           createdAt: -1,
-
         });
 
 
@@ -1545,7 +1391,6 @@ app.get(
 
 
       return res.status(200).json({
-
         success: true,
 
         message:
@@ -1556,12 +1401,9 @@ app.get(
 
         data:
           leaves,
-
       });
 
-    }
-    catch (error) {
-
+    } catch (error) {
       console.error(
         "Leave fetch error:",
         error
@@ -1569,7 +1411,6 @@ app.get(
 
 
       return res.status(500).json({
-
         success: false,
 
         message:
@@ -1577,62 +1418,47 @@ app.get(
 
         error:
           error.message,
-
       });
-
     }
-
   }
 );
 
 
 // ==================================================
 // GET EMPLOYEE LEAVES
-//
 // GET /api/leaves/employee/:mobileNumber
 // ==================================================
 
 app.get(
   "/api/leaves/employee/:mobileNumber",
   async (req, res) => {
-
     try {
-
       const mobileNumber =
         req.params.mobileNumber;
 
 
       if (!mobileNumber) {
-
         return res.status(400).json({
-
           success: false,
 
           message:
             "Mobile number is required.",
-
         });
-
       }
 
 
       const leaves =
         await Leave.find({
-
           mobileNumber:
             mobileNumber,
-
         }).sort({
-
           startDate: -1,
 
           createdAt: -1,
-
         });
 
 
       return res.status(200).json({
-
         success: true,
 
         message:
@@ -1643,12 +1469,9 @@ app.get(
 
         data:
           leaves,
-
       });
 
-    }
-    catch (error) {
-
+    } catch (error) {
       console.error(
         "Employee leave fetch error:",
         error
@@ -1656,7 +1479,6 @@ app.get(
 
 
       return res.status(500).json({
-
         success: false,
 
         message:
@@ -1664,27 +1486,21 @@ app.get(
 
         error:
           error.message,
-
       });
-
     }
-
   }
 );
 
 
 // ==================================================
 // GET SINGLE LEAVE
-//
 // GET /api/leaves/:id
 // ==================================================
 
 app.get(
   "/api/leaves/:id",
   async (req, res) => {
-
     try {
-
       const leave =
         await Leave.findById(
           req.params.id
@@ -1692,21 +1508,16 @@ app.get(
 
 
       if (!leave) {
-
         return res.status(404).json({
-
           success: false,
 
           message:
             "Leave not found.",
-
         });
-
       }
 
 
       return res.status(200).json({
-
         success: true,
 
         message:
@@ -1714,12 +1525,9 @@ app.get(
 
         data:
           leave,
-
       });
 
-    }
-    catch (error) {
-
+    } catch (error) {
       console.error(
         "Single leave fetch error:",
         error
@@ -1730,21 +1538,16 @@ app.get(
         error.name ===
         "CastError"
       ) {
-
         return res.status(400).json({
-
           success: false,
 
           message:
             "Invalid leave ID.",
-
         });
-
       }
 
 
       return res.status(500).json({
-
         success: false,
 
         message:
@@ -1752,27 +1555,21 @@ app.get(
 
         error:
           error.message,
-
       });
-
     }
-
   }
 );
 
 
 // ==================================================
 // CANCEL LEAVE
-//
 // PUT /api/leaves/:id/cancel
 // ==================================================
 
 app.put(
   "/api/leaves/:id/cancel",
   async (req, res) => {
-
     try {
-
       const leave =
         await Leave.findById(
           req.params.id
@@ -1780,16 +1577,12 @@ app.put(
 
 
       if (!leave) {
-
         return res.status(404).json({
-
           success: false,
 
           message:
             "Leave not found.",
-
         });
-
       }
 
 
@@ -1797,16 +1590,12 @@ app.put(
         leave.status ===
         "Cancelled"
       ) {
-
         return res.status(400).json({
-
           success: false,
 
           message:
             "Leave is already cancelled.",
-
         });
-
       }
 
 
@@ -1819,7 +1608,6 @@ app.put(
 
 
       return res.status(200).json({
-
         success: true,
 
         message:
@@ -1827,12 +1615,9 @@ app.put(
 
         data:
           updatedLeave,
-
       });
 
-    }
-    catch (error) {
-
+    } catch (error) {
       console.error(
         "Cancel leave error:",
         error
@@ -1843,21 +1628,16 @@ app.put(
         error.name ===
         "CastError"
       ) {
-
         return res.status(400).json({
-
           success: false,
 
           message:
             "Invalid leave ID.",
-
         });
-
       }
 
 
       return res.status(500).json({
-
         success: false,
 
         message:
@@ -1865,27 +1645,21 @@ app.put(
 
         error:
           error.message,
-
       });
-
     }
-
   }
 );
 
 
 // ==================================================
 // DELETE LEAVE
-//
 // DELETE /api/leaves/:id
 // ==================================================
 
 app.delete(
   "/api/leaves/:id",
   async (req, res) => {
-
     try {
-
       const leave =
         await Leave.findById(
           req.params.id
@@ -1893,16 +1667,12 @@ app.delete(
 
 
       if (!leave) {
-
         return res.status(404).json({
-
           success: false,
 
           message:
             "Leave not found.",
-
         });
-
       }
 
 
@@ -1912,7 +1682,6 @@ app.delete(
 
 
       return res.status(200).json({
-
         success: true,
 
         message:
@@ -1920,12 +1689,9 @@ app.delete(
 
         data:
           leave,
-
       });
 
-    }
-    catch (error) {
-
+    } catch (error) {
       console.error(
         "Delete leave error:",
         error
@@ -1936,21 +1702,16 @@ app.delete(
         error.name ===
         "CastError"
       ) {
-
         return res.status(400).json({
-
           success: false,
 
           message:
             "Invalid leave ID.",
-
         });
-
       }
 
 
       return res.status(500).json({
-
         success: false,
 
         message:
@@ -1958,11 +1719,8 @@ app.delete(
 
         error:
           error.message,
-
       });
-
     }
-
   }
 );
 
@@ -1974,10 +1732,8 @@ app.delete(
 app.listen(
   PORT,
   () => {
-
     console.log(
       `Server running on http://localhost:${PORT}`
     );
-
   }
 );
