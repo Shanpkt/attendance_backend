@@ -53,23 +53,10 @@ const getLocationName = async (
   longitude
 ) => {
   try {
-    console.log(
-      "================================"
-    );
-
-    console.log(
-      "Getting detailed location for:"
-    );
-
-    console.log(
-      "Latitude:",
-      latitude
-    );
-
-    console.log(
-      "Longitude:",
-      longitude
-    );
+    console.log("================================");
+    console.log("Getting detailed address...");
+    console.log("Latitude:", latitude);
+    console.log("Longitude:", longitude);
 
     const response = await axios.get(
       "https://nominatim.openstreetmap.org/reverse",
@@ -77,13 +64,9 @@ const getLocationName = async (
         params: {
           lat: latitude,
           lon: longitude,
-
-          format: "json",
-
+          format: "jsonv2",
           addressdetails: 1,
-
           zoom: 18,
-
           "accept-language": "en",
         },
 
@@ -96,328 +79,78 @@ const getLocationName = async (
       }
     );
 
-
-    const address =
-      response.data?.address;
-
-
     console.log(
-      "Full reverse geocoding response:"
+      "NOMINATIM FULL RESPONSE:",
+      JSON.stringify(response.data, null, 2)
     );
 
-    console.log(
-      response.data
-    );
+    const data = response.data;
+    const address = data?.address || {};
 
+    // ==========================================
+    // GET ALL POSSIBLE LOCAL ADDRESS FIELDS
+    // ==========================================
 
-    if (!address) {
-      return "Location unavailable";
-    }
+    const parts = [
+      address.house_number,
+      address.building,
+      address.road,
 
+      // Detailed locality fields
+      address.residential,
+      address.neighbourhood,
+      address.quarter,
+      address.suburb,
+      address.city_district,
 
-    // ==================================================
-    // ADDRESS COMPONENTS
-    // ==================================================
+      // City fields
+      address.village,
+      address.town,
+      address.city,
+      address.municipality,
 
-    /*
-      Nominatim can return different fields
-      depending on the exact location.
+      // State
+      address.state,
 
-      Examples:
+      // PIN
+      address.postcode,
+    ];
 
-      road
-      neighbourhood
-      suburb
-      village
-      town
-      city
-      municipality
-      district
-      state
-      postcode
-      country
-    */
+    // ==========================================
+    // REMOVE EMPTY + DUPLICATE VALUES
+    // ==========================================
 
-
-    const road =
-      address.road ||
-      "";
-
-    const neighbourhood =
-      address.neighbourhood ||
-      "";
-
-    const suburb =
-      address.suburb ||
-      "";
-
-    const quarter =
-      address.quarter ||
-      "";
-
-    const cityDistrict =
-      address.city_district ||
-      "";
-
-    const village =
-      address.village ||
-      "";
-
-    const town =
-      address.town ||
-      "";
-
-    const city =
-      address.city ||
-      "";
-
-    const municipality =
-      address.municipality ||
-      "";
-
-    const district =
-      address.state_district ||
-      address.district ||
-      "";
-
-    const state =
-      address.state ||
-      "";
-
-    const postcode =
-      address.postcode ||
-      "";
-
-
-    // ==================================================
-    // FIND CITY
-    // ==================================================
-
-    const cityName =
-      city ||
-      town ||
-      village ||
-      municipality ||
-      "";
-
-
-    // ==================================================
-    // BUILD LOCALITY / AREA
-    // ==================================================
-
-    const localityParts = [];
-
-
-    /*
-      We prioritize smaller/local areas.
-
-      Example:
-
-      Raut Layout
-      Zingabai Takli
-      Nagpur
-      Maharashtra
-      440030
-    */
-
-
-    if (neighbourhood) {
-      localityParts.push(
-        neighbourhood
-      );
-    }
-
-
-    if (
-      suburb &&
-      suburb !== neighbourhood
-    ) {
-      localityParts.push(
-        suburb
-      );
-    }
-
-
-    if (
-      quarter &&
-      !localityParts.includes(quarter)
-    ) {
-      localityParts.push(
-        quarter
-      );
-    }
-
-
-    if (
-      cityDistrict &&
-      !localityParts.includes(cityDistrict)
-    ) {
-      localityParts.push(
-        cityDistrict
-      );
-    }
-
-
-    // ==================================================
-    // ADD ROAD
-    // ==================================================
-
-    /*
-      We add the road only when available.
-
-      Example:
-
-      "Raut Layout, Zingabai Takli, ..."
-    */
-
-    if (
-      road &&
-      !localityParts.includes(road)
-    ) {
-      localityParts.unshift(
-        road
-      );
-    }
-
-
-    // ==================================================
-    // REMOVE DUPLICATES
-    // ==================================================
-
-    const uniqueLocalityParts =
-      [
-        ...new Set(
-          localityParts.filter(
-            Boolean
+    const locationName = [
+      ...new Set(
+        parts
+          .filter(
+            (item) =>
+              item &&
+              String(item).trim()
           )
-        ),
-      ];
-
-
-    // ==================================================
-    // CREATE FINAL ADDRESS
-    // ==================================================
-
-    const addressParts = [];
-
-
-    // Locality / Layout / Road
-    addressParts.push(
-      ...uniqueLocalityParts
-    );
-
-
-    // City
-    if (
-      cityName &&
-      !addressParts.includes(
-        cityName
-      )
-    ) {
-      addressParts.push(
-        cityName
-      );
-    }
-
-
-    // District
-    /*
-      Don't add district if it is the
-      same as the city.
-    */
-
-    if (
-      district &&
-      district !== cityName &&
-      !addressParts.includes(
-        district
-      )
-    ) {
-      addressParts.push(
-        district
-      );
-    }
-
-
-    // State
-    if (
-      state &&
-      !addressParts.includes(
-        state
-      )
-    ) {
-      addressParts.push(
-        state
-      );
-    }
-
-
-    // PIN CODE
-    if (postcode) {
-      addressParts.push(
-        postcode
-      );
-    }
-
-
-    // ==================================================
-    // FINAL LOCATION NAME
-    // ==================================================
-
-    const locationName =
-      addressParts
-        .filter(Boolean)
-        .join(", ");
-
+          .map((item) =>
+            String(item).trim()
+          )
+      ),
+    ].join(", ");
 
     console.log(
-      "Formatted location:"
-    );
-
-    console.log(
+      "FINAL DETAILED ADDRESS:",
       locationName
     );
 
-    console.log(
-      "================================"
-    );
-
-
     return (
       locationName ||
-      response.data?.display_name ||
+      data?.display_name ||
       "Location unavailable"
     );
 
   } catch (error) {
 
     console.error(
-      "================================"
+      "Reverse geocoding error:",
+      error.response?.data || error.message
     );
-
-    console.error(
-      "REVERSE GEOCODING ERROR"
-    );
-
-    console.error(
-      "Message:",
-      error.message
-    );
-
-    console.error(
-      "Status:",
-      error.response?.status
-    );
-
-    console.error(
-      "Response:",
-      error.response?.data
-    );
-
-    console.error(
-      "================================"
-    );
-
 
     return "Location unavailable";
   }
