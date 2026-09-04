@@ -23,9 +23,25 @@ const settingSchema = new mongoose.Schema(
       default: "13:30",
       trim: true,
     },
+
+    latitude: {
+      type: Number,
+      default: null,
+    },
+
+    longitude: {
+      type: Number,
+      default: null,
+    },
+
+    accuracy: {
+      type: Number,
+      default: null,
+    },
   },
   {
     timestamps: true,
+    minimize: false,
   }
 );
 
