@@ -1,35 +1,5 @@
 const mongoose = require("mongoose");
 
-const punchSchema = new mongoose.Schema(
-  {
-    timestamp: {
-      type: Date,
-      default: null,
-    },
-
-    latitude: {
-      type: Number,
-      default: null,
-    },
-
-    longitude: {
-      type: Number,
-      default: null,
-    },
-
-    accuracy: {
-      type: Number,
-      default: null,
-    },
-
-    locationName: {
-      type: String,
-      default: "Location unavailable",
-    },
-  },
-  { _id: false }
-);
-
 const attendanceSchema = new mongoose.Schema(
   {
     mobileNumber: {
@@ -43,39 +13,69 @@ const attendanceSchema = new mongoose.Schema(
       required: true,
     },
 
-    // ==========================================
-    // PUNCH IN
-    // ==========================================
-
     punchIn: {
-      type: punchSchema,
-      default: () => ({
-        timestamp: null,
-        latitude: null,
-        longitude: null,
-        accuracy: null,
-        locationName: "Location unavailable",
-      }),
-    },
+      timestamp: {
+        type: Date,
+        default: null,
+      },
 
-    // ==========================================
-    // PUNCH OUT
-    // ==========================================
+      latitude: {
+        type: Number,
+        default: null,
+      },
+
+      longitude: {
+        type: Number,
+        default: null,
+      },
+
+      accuracy: {
+        type: Number,
+        default: null,
+      },
+
+      locationName: {
+        type: String,
+        default: null,
+      },
+
+      selfieUrl: {
+        type: String,
+        default: null,
+      },
+    },
 
     punchOut: {
-      type: punchSchema,
-      default: () => ({
-        timestamp: null,
-        latitude: null,
-        longitude: null,
-        accuracy: null,
-        locationName: null,
-      }),
-    },
+      timestamp: {
+        type: Date,
+        default: null,
+      },
 
-    // ==========================================
-    // STATUS
-    // ==========================================
+      latitude: {
+        type: Number,
+        default: null,
+      },
+
+      longitude: {
+        type: Number,
+        default: null,
+      },
+
+      accuracy: {
+        type: Number,
+        default: null,
+      },
+
+      locationName: {
+        type: String,
+        default: null,
+      },
+
+      selfieUrl: {
+        type: String,
+        default: null,
+      },
+    },
 
     status: {
       type: String,
@@ -87,10 +87,6 @@ const attendanceSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
-
-// ==========================================
-// ONE ATTENDANCE PER EMPLOYEE PER DAY
-// ==========================================
 
 attendanceSchema.index(
   {
