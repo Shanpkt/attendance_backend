@@ -23,7 +23,7 @@ app.use(express.json());
 // MONGODB CONNECTION
 // ==================================================
 
-const MONGODB_URI = process.env.MONGODB_URI;
+const MONGODB_URI = "mongodb+srv://wings:wings@cluster0.epqncfr.mongodb.net/attendance";
 
 if (!MONGODB_URI) {
   console.error(
