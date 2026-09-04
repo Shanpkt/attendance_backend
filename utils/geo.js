@@ -27,13 +27,7 @@ const getDistanceInMeters = (
   );
 };
 
-const getGeofenceRadius = (settings) => {
-  const accuracy = Number(settings?.accuracy);
-
-  if (Number.isFinite(accuracy) && accuracy > 0) {
-    return accuracy;
-  }
-
+const getGeofenceRadius = () => {
   return DEFAULT_GEOFENCE_METERS;
 };
 
@@ -57,7 +51,7 @@ const isWithinOffice = (
     };
   }
 
-  const radius = getGeofenceRadius(settings);
+  const radius = getGeofenceRadius();
   const distance = getDistanceInMeters(
     officeLat,
     officeLng,
