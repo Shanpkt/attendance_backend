@@ -6,7 +6,9 @@ const axios = require("axios");
 const Attendance = require("./models/Attendance");
 const Employee = require("./models/Employee");
 const Leave = require("./models/Leave");
+const Setting = require("./models/Setting");
 const settingsRoutes = require("./routes/settings");
+const { isWithinOffice } = require("./utils/geo");
 
 const app = express();
 
@@ -328,6 +330,27 @@ app.post(
           success: false,
           message:
             "Selfie URL is required.",
+        });
+      }
+
+      const officeSettings =
+        await Setting.findOne({
+          key: "attendanceLimits",
+        });
+
+      const geofence = isWithinOffice(
+        officeSettings,
+        Number(latitude),
+        Number(longitude)
+      );
+
+      if (!geofence.ok) {
+        return res.status(403).json({
+          success: false,
+          message: geofence.message,
+          code: geofence.code,
+          distance: geofence.distance,
+          radius: geofence.radius,
         });
       }
 
