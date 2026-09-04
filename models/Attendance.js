@@ -1,10 +1,41 @@
 const mongoose = require("mongoose");
 
+const punchSchema = new mongoose.Schema(
+  {
+    timestamp: {
+      type: Date,
+      default: null,
+    },
+
+    latitude: {
+      type: Number,
+      default: null,
+    },
+
+    longitude: {
+      type: Number,
+      default: null,
+    },
+
+    accuracy: {
+      type: Number,
+      default: null,
+    },
+
+    locationName: {
+      type: String,
+      default: "Location unavailable",
+    },
+  },
+  { _id: false }
+);
+
 const attendanceSchema = new mongoose.Schema(
   {
     mobileNumber: {
       type: String,
       required: true,
+      trim: true,
     },
 
     date: {
@@ -12,49 +43,39 @@ const attendanceSchema = new mongoose.Schema(
       required: true,
     },
 
-    // FIRST PUNCH
+    // ==========================================
+    // PUNCH IN
+    // ==========================================
+
     punchIn: {
-      timestamp: {
-        type: Date,
-      },
-      latitude: {
-        type: Number,
-      },
-      longitude: {
-        type: Number,
-      },
-      accuracy: {
-        type: Number,
-      },
-      locationName: {
-        type: String,
-        default: "Location unavailable",
-      },
+      type: punchSchema,
+      default: () => ({
+        timestamp: null,
+        latitude: null,
+        longitude: null,
+        accuracy: null,
+        locationName: "Location unavailable",
+      }),
     },
 
-    // SECOND PUNCH
+    // ==========================================
+    // PUNCH OUT
+    // ==========================================
+
     punchOut: {
-      timestamp: {
-        type: Date,
-        default: null,
-      },
-      latitude: {
-        type: Number,
-        default: null,
-      },
-      longitude: {
-        type: Number,
-        default: null,
-      },
-      accuracy: {
-        type: Number,
-        default: null,
-      },
-      locationName: {
-        type: String,
-        default: null,
-      },
+      type: punchSchema,
+      default: () => ({
+        timestamp: null,
+        latitude: null,
+        longitude: null,
+        accuracy: null,
+        locationName: null,
+      }),
     },
+
+    // ==========================================
+    // STATUS
+    // ==========================================
 
     status: {
       type: String,
@@ -67,10 +88,21 @@ const attendanceSchema = new mongoose.Schema(
   }
 );
 
-// Prevent multiple attendance records for the same employee on the same date
+// ==========================================
+// ONE ATTENDANCE PER EMPLOYEE PER DAY
+// ==========================================
+
 attendanceSchema.index(
-  { mobileNumber: 1, date: 1 },
-  { unique: true }
+  {
+    mobileNumber: 1,
+    date: 1,
+  },
+  {
+    unique: true,
+  }
 );
 
-module.exports = mongoose.model("Attendance", attendanceSchema);
+module.exports = mongoose.model(
+  "Attendance",
+  attendanceSchema
+);
