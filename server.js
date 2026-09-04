@@ -6,6 +6,7 @@ const axios = require("axios");
 const Attendance = require("./models/Attendance");
 const Employee = require("./models/Employee");
 const Leave = require("./models/Leave");
+const settingsRoutes = require("./routes/settings");
 
 const app = express();
 
@@ -1035,6 +1036,12 @@ app.delete(
     }
   }
 );
+
+// ==================================================
+// SETTINGS
+// ==================================================
+
+app.use("/api/settings", settingsRoutes);
 
 // ==================================================
 // 404 ROUTE
