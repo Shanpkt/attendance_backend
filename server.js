@@ -16,14 +16,13 @@ const PORT = process.env.PORT || 5000;
 // ==================================================
 
 app.use(cors());
-
 app.use(express.json());
 
 // ==================================================
 // MONGODB CONNECTION
 // ==================================================
 
-const MONGODB_URI = "mongodb+srv://wings:wings@cluster0.epqncfr.mongodb.net/attendance";
+const MONGODB_URI = process.env.MONGODB_URI;
 
 if (!MONGODB_URI) {
   console.error(
@@ -52,9 +51,7 @@ if (!MONGODB_URI) {
 // ==================================================
 
 mongoose.connection.on("connected", () => {
-  console.log(
-    "✅ Mongoose connected to MongoDB"
-  );
+  console.log("✅ Mongoose connected to MongoDB");
 });
 
 mongoose.connection.on("error", (error) => {
@@ -65,9 +62,7 @@ mongoose.connection.on("error", (error) => {
 });
 
 mongoose.connection.on("disconnected", () => {
-  console.log(
-    "⚠️ MongoDB disconnected"
-  );
+  console.log("⚠️ MongoDB disconnected");
 });
 
 // ==================================================
@@ -83,17 +78,9 @@ const getLocationName = async (
 ) => {
   try {
     console.log("================================");
-    console.log(
-      "Getting detailed address..."
-    );
-    console.log(
-      "Latitude:",
-      latitude
-    );
-    console.log(
-      "Longitude:",
-      longitude
-    );
+    console.log("Getting detailed address...");
+    console.log("Latitude:", latitude);
+    console.log("Longitude:", longitude);
 
     const response = await axios.get(
       "https://nominatim.openstreetmap.org/reverse",
@@ -125,20 +112,16 @@ const getLocationName = async (
       address.house_number,
       address.building,
       address.road,
-
       address.residential,
       address.neighbourhood,
       address.quarter,
       address.suburb,
       address.city_district,
-
       address.village,
       address.town,
       address.city,
       address.municipality,
-
       address.state,
-
       address.postcode,
     ];
 
@@ -296,7 +279,6 @@ app.post(
         await Attendance.findOne({
           mobileNumber:
             cleanMobileNumber,
-
           date,
         });
 
@@ -348,13 +330,9 @@ app.post(
 
             punchOut: {
               timestamp: null,
-
               latitude: null,
-
               longitude: null,
-
               accuracy: null,
-
               locationName: null,
             },
 
@@ -517,7 +495,6 @@ app.post(
         data:
           attendance,
       });
-
     } catch (error) {
       console.error(
         "================================"
@@ -593,7 +570,6 @@ app.get(
         data:
           attendanceData,
       });
-
     } catch (error) {
       console.error(
         "Attendance fetch error:",
@@ -655,7 +631,6 @@ app.get(
         data:
           attendance,
       });
-
     } catch (error) {
       console.error(
         "Employee attendance fetch error:",
@@ -667,6 +642,214 @@ app.get(
 
         message:
           "Failed to fetch employee attendance.",
+
+        error:
+          error.message,
+      });
+    }
+  }
+);
+
+// ==================================================
+// GET ATTENDANCE STATUS
+//
+// GET /api/attendance/status/:mobileNumber?date=4/9/2026
+//
+// NO RECORD     = PUNCH IN
+// PUNCHED IN    = PUNCH OUT
+// PUNCHED OUT   = COMPLETED
+// ==================================================
+
+app.get(
+  "/api/attendance/status/:mobileNumber",
+  async (req, res) => {
+    try {
+      const mobileNumber =
+        String(
+          req.params.mobileNumber
+        ).trim();
+
+      const { date } = req.query;
+
+      console.log(
+        "================================"
+      );
+
+      console.log(
+        "Attendance status request"
+      );
+
+      console.log(
+        "Mobile:",
+        mobileNumber
+      );
+
+      console.log(
+        "Date:",
+        date
+      );
+
+      console.log(
+        "================================"
+      );
+
+      // ==========================================
+      // VALIDATE MOBILE NUMBER
+      // ==========================================
+
+      if (!mobileNumber) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Mobile number is required.",
+        });
+      }
+
+      if (
+        !/^[6-9]\d{9}$/.test(
+          mobileNumber
+        )
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Please enter a valid 10 digit mobile number.",
+        });
+      }
+
+      // ==========================================
+      // VALIDATE DATE
+      // ==========================================
+
+      if (!date) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Date is required.",
+        });
+      }
+
+      // ==========================================
+      // FIND ATTENDANCE
+      // ==========================================
+
+      const attendance =
+        await Attendance.findOne({
+          mobileNumber,
+          date,
+        });
+
+      // ==========================================
+      // NO ATTENDANCE
+      // READY FOR PUNCH IN
+      // ==========================================
+
+      if (!attendance) {
+        return res.status(200).json({
+          success: true,
+
+          exists: false,
+
+          status: null,
+
+          action:
+            "PUNCH_IN",
+
+          message:
+            "Ready for Punch In.",
+
+          data: null,
+        });
+      }
+
+      // ==========================================
+      // PUNCHED IN
+      // READY FOR PUNCH OUT
+      // ==========================================
+
+      if (
+        attendance.status ===
+        "Punched In"
+      ) {
+        return res.status(200).json({
+          success: true,
+
+          exists: true,
+
+          status:
+            "Punched In",
+
+          action:
+            "PUNCH_OUT",
+
+          message:
+            "Ready for Punch Out.",
+
+          data:
+            attendance,
+        });
+      }
+
+      // ==========================================
+      // PUNCHED OUT
+      // COMPLETED
+      // ==========================================
+
+      if (
+        attendance.status ===
+        "Punched Out"
+      ) {
+        return res.status(200).json({
+          success: true,
+
+          exists: true,
+
+          status:
+            "Punched Out",
+
+          action:
+            "COMPLETED",
+
+          message:
+            "Attendance already completed for today.",
+
+          data:
+            attendance,
+        });
+      }
+
+      // ==========================================
+      // UNKNOWN STATUS
+      // ==========================================
+
+      return res.status(200).json({
+        success: true,
+
+        exists: true,
+
+        status:
+          attendance.status,
+
+        action:
+          "PUNCH_IN",
+
+        message:
+          "Attendance status could not be determined.",
+
+        data:
+          attendance,
+      });
+    } catch (error) {
+      console.error(
+        "Attendance status fetch error:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+
+        message:
+          "Failed to fetch attendance status.",
 
         error:
           error.message,
@@ -688,12 +871,19 @@ app.post(
   "/api/employees",
   async (req, res) => {
     try {
-      console.log("================================");
+      console.log(
+        "================================"
+      );
+
       console.log(
         "New employee data received:"
       );
+
       console.log(req.body);
-      console.log("================================");
+
+      console.log(
+        "================================"
+      );
 
       const {
         name,
@@ -787,7 +977,6 @@ app.post(
         data:
           savedEmployee,
       });
-
     } catch (error) {
       console.error(
         "Employee creation error:",
@@ -838,7 +1027,6 @@ app.get(
         data:
           employees,
       });
-
     } catch (error) {
       console.error(
         "Employee fetch error:",
@@ -890,7 +1078,6 @@ app.get(
         data:
           employee,
       });
-
     } catch (error) {
       console.error(
         "Employee fetch error:",
@@ -944,7 +1131,6 @@ app.put(
       if (!name || !name.trim()) {
         return res.status(400).json({
           success: false,
-
           message:
             "Employee name is required.",
         });
@@ -956,7 +1142,6 @@ app.put(
       ) {
         return res.status(400).json({
           success: false,
-
           message:
             "Mobile number is required.",
         });
@@ -965,7 +1150,6 @@ app.put(
       if (!joiningDate) {
         return res.status(400).json({
           success: false,
-
           message:
             "Joining date is required.",
         });
@@ -978,7 +1162,6 @@ app.put(
       ) {
         return res.status(400).json({
           success: false,
-
           message:
             "Mobile number must contain exactly 10 digits.",
         });
@@ -1043,7 +1226,6 @@ app.put(
         data:
           updatedEmployee,
       });
-
     } catch (error) {
       console.error(
         "Employee update error:",
@@ -1114,7 +1296,6 @@ app.delete(
         data:
           employee,
       });
-
     } catch (error) {
       console.error(
         "Employee delete error:",
@@ -1159,12 +1340,19 @@ app.post(
   "/api/leaves",
   async (req, res) => {
     try {
-      console.log("================================");
+      console.log(
+        "================================"
+      );
+
       console.log(
         "Schedule leave request:"
       );
+
       console.log(req.body);
-      console.log("================================");
+
+      console.log(
+        "================================"
+      );
 
       const {
         employeeId,
@@ -1319,7 +1507,6 @@ app.post(
         data:
           savedLeave,
       });
-
     } catch (error) {
       console.error(
         "Schedule leave error:",
@@ -1402,7 +1589,6 @@ app.get(
         data:
           leaves,
       });
-
     } catch (error) {
       console.error(
         "Leave fetch error:",
@@ -1463,7 +1649,6 @@ app.get(
         data:
           leaves,
       });
-
     } catch (error) {
       console.error(
         "Employee leave fetch error:",
@@ -1515,7 +1700,6 @@ app.get(
         data:
           leave,
       });
-
     } catch (error) {
       console.error(
         "Single leave fetch error:",
@@ -1597,7 +1781,6 @@ app.put(
         data:
           updatedLeave,
       });
-
     } catch (error) {
       console.error(
         "Cancel leave error:",
@@ -1665,7 +1848,6 @@ app.delete(
         data:
           leave,
       });
-
     } catch (error) {
       console.error(
         "Delete leave error:",
@@ -1745,7 +1927,9 @@ app.use(
 app.listen(
   PORT,
   () => {
-    console.log("================================");
+    console.log(
+      "================================"
+    );
 
     console.log(
       `🚀 Server running on port ${PORT}`
@@ -1758,6 +1942,8 @@ app.listen(
       }`
     );
 
-    console.log("================================");
+    console.log(
+      "================================"
+    );
   }
 );
