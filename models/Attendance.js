@@ -12,29 +12,54 @@ const attendanceSchema = new mongoose.Schema(
       required: true,
     },
 
-    timestamp: {
-      type: Date,
-      default: Date.now,
+    // FIRST PUNCH
+    punchIn: {
+      timestamp: {
+        type: Date,
+      },
+      latitude: {
+        type: Number,
+      },
+      longitude: {
+        type: Number,
+      },
+      accuracy: {
+        type: Number,
+      },
+      locationName: {
+        type: String,
+        default: "Location unavailable",
+      },
     },
 
-    latitude: {
-      type: Number,
-      required: true,
+    // SECOND PUNCH
+    punchOut: {
+      timestamp: {
+        type: Date,
+        default: null,
+      },
+      latitude: {
+        type: Number,
+        default: null,
+      },
+      longitude: {
+        type: Number,
+        default: null,
+      },
+      accuracy: {
+        type: Number,
+        default: null,
+      },
+      locationName: {
+        type: String,
+        default: null,
+      },
     },
 
-    longitude: {
-      type: Number,
-      required: true,
-    },
-
-    accuracy: {
-      type: Number,
-      required: true,
-    },
-
-    locationName: {
+    status: {
       type: String,
-      default: "Location unavailable",
+      enum: ["Punched In", "Punched Out"],
+      default: "Punched In",
     },
   },
   {
@@ -42,7 +67,10 @@ const attendanceSchema = new mongoose.Schema(
   }
 );
 
-module.exports = mongoose.model(
-  "Attendance",
-  attendanceSchema
+// Prevent multiple attendance records for the same employee on the same date
+attendanceSchema.index(
+  { mobileNumber: 1, date: 1 },
+  { unique: true }
 );
+
+module.exports = mongoose.model("Attendance", attendanceSchema);
