@@ -38,6 +38,11 @@ const settingSchema = new mongoose.Schema(
       type: Number,
       default: null,
     },
+
+    gpsTolerance: {
+      type: Boolean,
+      default: true,
+    },
   },
   {
     timestamps: true,

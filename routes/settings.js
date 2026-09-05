@@ -10,6 +10,7 @@ const DEFAULT_SETTINGS = {
   latitude: null,
   longitude: null,
   accuracy: null,
+  gpsTolerance: true,
 };
 
 const isValidTime = (value) => {
@@ -68,6 +69,51 @@ const parseOptionalNumber = (
   };
 };
 
+const parseOptionalBoolean = (body, key) => {
+  if (
+    !Object.prototype.hasOwnProperty.call(
+      body,
+      key
+    )
+  ) {
+    return {
+      provided: false,
+      value: null,
+    };
+  }
+
+  const value = body[key];
+
+  if (
+    value === true ||
+    value === "true" ||
+    value === 1 ||
+    value === "1"
+  ) {
+    return {
+      provided: true,
+      value: true,
+    };
+  }
+
+  if (
+    value === false ||
+    value === "false" ||
+    value === 0 ||
+    value === "0"
+  ) {
+    return {
+      provided: true,
+      value: false,
+    };
+  }
+
+  return {
+    provided: true,
+    value: undefined,
+  };
+};
+
 const getOrCreateSettings = async () => {
   let settings = await Setting.findOne({
     key: "attendanceLimits",
@@ -83,6 +129,7 @@ const getOrCreateSettings = async () => {
       latitude: DEFAULT_SETTINGS.latitude,
       longitude: DEFAULT_SETTINGS.longitude,
       accuracy: DEFAULT_SETTINGS.accuracy,
+      gpsTolerance: DEFAULT_SETTINGS.gpsTolerance,
     });
   }
 
@@ -165,6 +212,11 @@ router.put("/", async (req, res) => {
       100000
     );
 
+    const gpsTolerance = parseOptionalBoolean(
+      req.body,
+      "gpsTolerance"
+    );
+
     if (
       latitude.value === undefined ||
       longitude.value === undefined ||
@@ -174,6 +226,14 @@ router.put("/", async (req, res) => {
         success: false,
         message:
           "Latitude must be -90 to 90, longitude -180 to 180, and accuracy 0 or more meters.",
+      });
+    }
+
+    if (gpsTolerance.value === undefined) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "GPS tolerance must be true or false.",
       });
     }
 
@@ -192,6 +252,12 @@ router.put("/", async (req, res) => {
       ? accuracy.value
       : existing.accuracy;
 
+    const nextGpsTolerance = gpsTolerance.provided
+      ? gpsTolerance.value
+      : existing.gpsTolerance !== undefined
+        ? existing.gpsTolerance
+        : DEFAULT_SETTINGS.gpsTolerance;
+
     const settings =
       await Setting.findOneAndUpdate(
         {
@@ -204,6 +270,7 @@ router.put("/", async (req, res) => {
             latitude: nextLatitude,
             longitude: nextLongitude,
             accuracy: nextAccuracy,
+            gpsTolerance: nextGpsTolerance,
           },
           $setOnInsert: {
             key: "attendanceLimits",
