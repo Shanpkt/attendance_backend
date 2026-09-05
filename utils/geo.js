@@ -1,4 +1,4 @@
-const DEFAULT_GEOFENCE_METERS = 100;
+const DEFAULT_GEOFENCE_METERS = 600;
 
 const getDistanceInMeters = (
   lat1,
