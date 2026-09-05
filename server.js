@@ -543,6 +543,56 @@ app.get(
 );
 
 // ==================================================
+// DELETE ATTENDANCE BY IDS
+// ==================================================
+
+app.delete(
+  "/api/attendance",
+  async (req, res) => {
+    try {
+      const ids = Array.isArray(req.body?.ids)
+        ? req.body.ids
+        : [];
+
+      const validIds = ids
+        .map((id) => String(id || "").trim())
+        .filter((id) =>
+          mongoose.Types.ObjectId.isValid(id)
+        );
+
+      if (validIds.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Attendance ids are required.",
+        });
+      }
+
+      const result =
+        await Attendance.deleteMany({
+          _id: {
+            $in: validIds,
+          },
+        });
+
+      return res.status(200).json({
+        success: true,
+        message:
+          "Attendance records deleted.",
+        deleted: result.deletedCount,
+      });
+    } catch (error) {
+      return res.status(500).json({
+        success: false,
+        message:
+          "Failed to delete attendance.",
+        error: error.message,
+      });
+    }
+  }
+);
+
+// ==================================================
 // GET EMPLOYEE ATTENDANCE
 // ==================================================
 
