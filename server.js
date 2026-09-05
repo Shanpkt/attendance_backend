@@ -594,6 +594,7 @@ app.post(
         mobileNumber,
         email,
         joiningDate,
+        profilePic,
       } = req.body;
 
       if (!name?.trim()) {
@@ -651,6 +652,8 @@ app.post(
           email:
             email?.trim() || "",
           joiningDate,
+          profilePic:
+            String(profilePic || "").trim(),
         });
 
       const savedEmployee =
@@ -758,6 +761,7 @@ app.put(
         mobileNumber,
         email,
         joiningDate,
+        profilePic,
       } = req.body;
 
       const employee =
@@ -801,6 +805,11 @@ app.put(
       ) {
         employee.joiningDate =
           joiningDate;
+      }
+
+      if (profilePic !== undefined) {
+        employee.profilePic =
+          String(profilePic || "").trim();
       }
 
       const updatedEmployee =

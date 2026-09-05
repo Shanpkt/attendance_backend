@@ -24,6 +24,12 @@ const employeeSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+
+    profilePic: {
+      type: String,
+      trim: true,
+      default: "",
+    },
   },
   {
     timestamps: true,
