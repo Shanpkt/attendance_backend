@@ -1067,6 +1067,137 @@ app.delete(
 app.use("/api/settings", settingsRoutes);
 
 // ==================================================
+// DELETE PENDING SELFIE FROM SUPABASE
+// ==================================================
+
+const SUPABASE_URL =
+  process.env.SUPABASE_URL ||
+  "https://irikmbaezbvszzwsdzrt.supabase.co";
+
+const SUPABASE_SERVICE_ROLE_KEY =
+  process.env.SUPABASE_SERVICE_ROLE_KEY ||
+  "";
+
+const getSelfieStoragePath = (
+  selfieUrl,
+  path
+) => {
+  if (path) {
+    return String(path)
+      .replace(/^ATTENDANCE\//, "")
+      .replace(/^\/+/, "");
+  }
+
+  if (!selfieUrl) {
+    return "";
+  }
+
+  const marker =
+    "/object/public/ATTENDANCE/";
+  const index = String(
+    selfieUrl
+  ).indexOf(marker);
+
+  if (index === -1) {
+    return "";
+  }
+
+  return decodeURIComponent(
+    String(selfieUrl)
+      .slice(index + marker.length)
+      .split("?")[0]
+  );
+};
+
+app.delete(
+  "/api/attendance/selfie",
+  async (req, res) => {
+    try {
+      const selfieUrl =
+        req.body?.selfieUrl;
+      const requestedPath =
+        req.body?.path;
+
+      const objectPath =
+        getSelfieStoragePath(
+          selfieUrl,
+          requestedPath
+        );
+
+      if (!objectPath) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Selfie path is required.",
+        });
+      }
+
+      if (
+        !objectPath.startsWith(
+          "pending/"
+        )
+      ) {
+        return res.status(403).json({
+          success: false,
+          message:
+            "Only pending selfies can be deleted.",
+        });
+      }
+
+      if (!SUPABASE_SERVICE_ROLE_KEY) {
+        return res.status(500).json({
+          success: false,
+          message:
+            "Supabase service role key is not configured on the server.",
+        });
+      }
+
+      const encodedPath =
+        objectPath
+          .split("/")
+          .map((part) =>
+            encodeURIComponent(part)
+          )
+          .join("/");
+
+      await axios.delete(
+        `${SUPABASE_URL}/storage/v1/object/ATTENDANCE/${encodedPath}`,
+        {
+          headers: {
+            Authorization:
+              `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+            apikey:
+              SUPABASE_SERVICE_ROLE_KEY,
+          },
+          timeout: 20000,
+        }
+      );
+
+      return res.status(200).json({
+        success: true,
+        message:
+          "Selfie deleted successfully.",
+        path: objectPath,
+      });
+    } catch (error) {
+      console.error(
+        "Selfie delete error:",
+        error.response?.data ||
+          error.message
+      );
+
+      return res.status(500).json({
+        success: false,
+        message:
+          error.response?.data?.message ||
+          "Failed to delete selfie from storage.",
+        error: error.message,
+      });
+    }
+  }
+);
+
+// ==================================================
 // 404 ROUTE
 // ==================================================
 
