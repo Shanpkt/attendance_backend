@@ -44,6 +44,11 @@ const settingSchema = new mongoose.Schema(
       default: 30,
     },
 
+    punchAccuracy: {
+      type: Number,
+      default: 30,
+    },
+
     gpsTolerance: {
       type: Boolean,
       default: true,

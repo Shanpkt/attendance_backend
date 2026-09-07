@@ -11,6 +11,7 @@ const DEFAULT_SETTINGS = {
   longitude: null,
   accuracy: null,
   tolerance: 30,
+  punchAccuracy: 30,
   gpsTolerance: true,
 };
 
@@ -131,6 +132,7 @@ const getOrCreateSettings = async () => {
       longitude: DEFAULT_SETTINGS.longitude,
       accuracy: DEFAULT_SETTINGS.accuracy,
       tolerance: DEFAULT_SETTINGS.tolerance,
+      punchAccuracy: DEFAULT_SETTINGS.punchAccuracy,
       gpsTolerance: DEFAULT_SETTINGS.gpsTolerance,
     });
   }
@@ -221,6 +223,13 @@ router.put("/", async (req, res) => {
       100000
     );
 
+    const punchAccuracy = parseOptionalNumber(
+      req.body,
+      "punchAccuracy",
+      0,
+      100000
+    );
+
     const gpsTolerance = parseOptionalBoolean(
       req.body,
       "gpsTolerance"
@@ -230,12 +239,13 @@ router.put("/", async (req, res) => {
       latitude.value === undefined ||
       longitude.value === undefined ||
       accuracy.value === undefined ||
-      tolerance.value === undefined
+      tolerance.value === undefined ||
+      punchAccuracy.value === undefined
     ) {
       return res.status(400).json({
         success: false,
         message:
-          "Latitude must be -90 to 90, longitude -180 to 180, accuracy 0 or more meters, and tolerance 1 or more meters.",
+          "Latitude must be -90 to 90, longitude -180 to 180, accuracy and punch accuracy 0 or more meters, and tolerance 1 or more meters.",
       });
     }
 
@@ -269,6 +279,13 @@ router.put("/", async (req, res) => {
         ? existing.tolerance
         : DEFAULT_SETTINGS.tolerance;
 
+    const nextPunchAccuracy = punchAccuracy.provided
+      ? punchAccuracy.value
+      : existing.punchAccuracy !== undefined &&
+          existing.punchAccuracy !== null
+        ? existing.punchAccuracy
+        : DEFAULT_SETTINGS.punchAccuracy;
+
     const nextGpsTolerance = gpsTolerance.provided
       ? gpsTolerance.value
       : existing.gpsTolerance !== undefined
@@ -288,6 +305,7 @@ router.put("/", async (req, res) => {
             longitude: nextLongitude,
             accuracy: nextAccuracy,
             tolerance: nextTolerance,
+            punchAccuracy: nextPunchAccuracy,
             gpsTolerance: nextGpsTolerance,
           },
           $setOnInsert: {
