@@ -27,7 +27,13 @@ const getDistanceInMeters = (
   );
 };
 
-const getGeofenceRadius = () => {
+const getGeofenceRadius = (tolerance) => {
+  const number = Number(tolerance);
+
+  if (Number.isFinite(number) && number > 0) {
+    return number;
+  }
+
   return DEFAULT_GEOFENCE_METERS;
 };
 
@@ -51,7 +57,9 @@ const isWithinOffice = (
     };
   }
 
-  const radius = getGeofenceRadius();
+  const radius = getGeofenceRadius(
+    settings?.tolerance
+  );
   const distance = getDistanceInMeters(
     officeLat,
     officeLng,
