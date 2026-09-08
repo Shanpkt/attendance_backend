@@ -8,7 +8,10 @@ const Employee = require("./models/Employee");
 const Leave = require("./models/Leave");
 const Setting = require("./models/Setting");
 const settingsRoutes = require("./routes/settings");
-const { isWithinOffice } = require("./utils/geo");
+const {
+  isWithinOffice,
+  shouldKeepGpsTolerance,
+} = require("./utils/geo");
 
 const app = express();
 
@@ -292,39 +295,6 @@ app.post(
         });
       }
 
-      if (
-        latitude === undefined ||
-        latitude === null
-      ) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "Latitude is required.",
-        });
-      }
-
-      if (
-        longitude === undefined ||
-        longitude === null
-      ) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "Longitude is required.",
-        });
-      }
-
-      if (
-        accuracy === undefined ||
-        accuracy === null
-      ) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "Location accuracy is required.",
-        });
-      }
-
       if (!selfieUrl) {
         return res.status(400).json({
           success: false,
@@ -338,20 +308,60 @@ app.post(
           key: "attendanceLimits",
         });
 
-      const geofence = isWithinOffice(
-        officeSettings,
-        Number(latitude),
-        Number(longitude)
-      );
+      const skipGpsCheck =
+        !shouldKeepGpsTolerance(
+          officeSettings?.gpsTolerance
+        );
 
-      if (!geofence.ok) {
-        return res.status(403).json({
-          success: false,
-          message: geofence.message,
-          code: geofence.code,
-          distance: geofence.distance,
-          radius: geofence.radius,
-        });
+      if (!skipGpsCheck) {
+        if (
+          latitude === undefined ||
+          latitude === null
+        ) {
+          return res.status(400).json({
+            success: false,
+            message:
+              "Latitude is required.",
+          });
+        }
+
+        if (
+          longitude === undefined ||
+          longitude === null
+        ) {
+          return res.status(400).json({
+            success: false,
+            message:
+              "Longitude is required.",
+          });
+        }
+
+        if (
+          accuracy === undefined ||
+          accuracy === null
+        ) {
+          return res.status(400).json({
+            success: false,
+            message:
+              "Location accuracy is required.",
+          });
+        }
+
+        const geofence = isWithinOffice(
+          officeSettings,
+          Number(latitude),
+          Number(longitude)
+        );
+
+        if (!geofence.ok) {
+          return res.status(403).json({
+            success: false,
+            message: geofence.message,
+            code: geofence.code,
+            distance: geofence.distance,
+            radius: geofence.radius,
+          });
+        }
       }
 
       // ============================================
@@ -369,11 +379,24 @@ app.post(
       // GET LOCATION
       // ============================================
 
-      const locationName =
-        await getLocationName(
-          latitude,
-          longitude
-        );
+      const locationName = skipGpsCheck
+        ? "GPS check skipped"
+        : await getLocationName(
+            latitude,
+            longitude
+          );
+
+      const punchLatitude = skipGpsCheck
+        ? null
+        : Number(latitude);
+
+      const punchLongitude = skipGpsCheck
+        ? null
+        : Number(longitude);
+
+      const punchAccuracy = skipGpsCheck
+        ? null
+        : Number(accuracy);
 
       const currentTime =
         new Date();
@@ -395,13 +418,13 @@ app.post(
                 currentTime,
 
               latitude:
-                Number(latitude),
+                punchLatitude,
 
               longitude:
-                Number(longitude),
+                punchLongitude,
 
               accuracy:
-                Number(accuracy),
+                punchAccuracy,
 
               locationName,
 
@@ -450,13 +473,13 @@ app.post(
             currentTime,
 
           latitude:
-            Number(latitude),
+            punchLatitude,
 
           longitude:
-            Number(longitude),
+            punchLongitude,
 
           accuracy:
-            Number(accuracy),
+            punchAccuracy,
 
           locationName,
 

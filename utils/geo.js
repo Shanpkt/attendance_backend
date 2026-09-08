@@ -37,6 +37,19 @@ const getGeofenceRadius = (tolerance) => {
   return DEFAULT_GEOFENCE_METERS;
 };
 
+const shouldKeepGpsTolerance = (value) => {
+  if (
+    value === false ||
+    value === "false" ||
+    value === 0 ||
+    value === "0"
+  ) {
+    return false;
+  }
+
+  return true;
+};
+
 const isWithinOffice = (
   settings,
   latitude,
@@ -89,5 +102,6 @@ module.exports = {
   DEFAULT_GEOFENCE_METERS,
   getDistanceInMeters,
   getGeofenceRadius,
+  shouldKeepGpsTolerance,
   isWithinOffice,
 };
