@@ -10,6 +10,10 @@ const Setting = require("./models/Setting");
 const settingsRoutes = require("./routes/settings");
 const holidaysRoutes = require("./routes/holidays");
 const {
+  router: adminAuthRoutes,
+  ensureDefaultAdmin,
+} = require("./routes/adminAuth");
+const {
   isWithinOffice,
   shouldKeepGpsTolerance,
 } = require("./utils/geo");
@@ -35,10 +39,19 @@ const MONGODB_URI =
 
 mongoose
   .connect(MONGODB_URI)
-  .then(() => {
+  .then(async () => {
     console.log("================================");
     console.log("MongoDB connected successfully");
     console.log("================================");
+
+    try {
+      await ensureDefaultAdmin();
+    } catch (error) {
+      console.error(
+        "Default admin seed error:",
+        error.message
+      );
+    }
   })
   .catch((error) => {
     console.error(
@@ -1154,6 +1167,12 @@ app.use("/api/settings", settingsRoutes);
 // ==================================================
 
 app.use("/api/holidays", holidaysRoutes);
+
+// ==================================================
+// ADMIN AUTH
+// ==================================================
+
+app.use("/api/admin", adminAuthRoutes);
 
 // ==================================================
 // 404 ROUTE
