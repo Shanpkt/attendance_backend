@@ -8,6 +8,7 @@ const Employee = require("./models/Employee");
 const Leave = require("./models/Leave");
 const Setting = require("./models/Setting");
 const settingsRoutes = require("./routes/settings");
+const holidaysRoutes = require("./routes/holidays");
 const {
   isWithinOffice,
   shouldKeepGpsTolerance,
@@ -1147,6 +1148,12 @@ app.delete(
 // ==================================================
 
 app.use("/api/settings", settingsRoutes);
+
+// ==================================================
+// HOLIDAYS
+// ==================================================
+
+app.use("/api/holidays", holidaysRoutes);
 
 // ==================================================
 // 404 ROUTE
