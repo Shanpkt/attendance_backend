@@ -8,6 +8,10 @@ const {
   shouldKeepGpsTolerance,
 } = require("../utils/geo");
 const { getLocationName } = require("../utils/geocode");
+const {
+  getDayLimitsFromSettings,
+  computeAttendanceFlags,
+} = require("../utils/attendanceFlags");
 
 const router = express.Router();
 
@@ -271,7 +275,18 @@ router.post("/", async (req, res) => {
 
     const currentTime = new Date();
 
+    const dayLimits = getDayLimitsFromSettings(
+      officeSettings
+    );
+
     if (!attendance) {
+      const flags = computeAttendanceFlags({
+        punchInTimestamp: currentTime,
+        punchOutTimestamp: null,
+        lateComingTime: dayLimits.lateComingTime,
+        halfDayTime: dayLimits.halfDayTime,
+      });
+
       attendance = new Attendance({
         mobileNumber: cleanMobileNumber,
         date,
@@ -291,6 +306,8 @@ router.post("/", async (req, res) => {
           locationName: null,
           selfieUrl: null,
         },
+        limits: dayLimits,
+        flags,
         status: "Punched In",
       });
 
@@ -318,6 +335,32 @@ router.post("/", async (req, res) => {
       };
 
       attendance.status = "Punched Out";
+
+      // Keep original day limits if already saved; otherwise snapshot now
+      if (
+        !attendance.limits?.lateComingTime ||
+        !attendance.limits?.halfDayTime
+      ) {
+        attendance.limits = dayLimits;
+      }
+
+      const savedLimits = {
+        lateComingTime:
+          attendance.limits?.lateComingTime ||
+          dayLimits.lateComingTime,
+        halfDayTime:
+          attendance.limits?.halfDayTime ||
+          dayLimits.halfDayTime,
+      };
+
+      attendance.limits = savedLimits;
+      attendance.flags = computeAttendanceFlags({
+        punchInTimestamp:
+          attendance.punchIn?.timestamp,
+        punchOutTimestamp: currentTime,
+        lateComingTime: savedLimits.lateComingTime,
+        halfDayTime: savedLimits.halfDayTime,
+      });
 
       const updatedAttendance =
         await attendance.save();

@@ -77,6 +77,34 @@ const attendanceSchema = new mongoose.Schema(
       },
     },
 
+    // Snapshot of settings used on this day
+    limits: {
+      lateComingTime: {
+        type: String,
+        default: null,
+        trim: true,
+      },
+
+      halfDayTime: {
+        type: String,
+        default: null,
+        trim: true,
+      },
+    },
+
+    // Computed against limits at punch time
+    flags: {
+      isLate: {
+        type: Boolean,
+        default: false,
+      },
+
+      isHalfDay: {
+        type: Boolean,
+        default: false,
+      },
+    },
+
     status: {
       type: String,
       enum: ["Punched In", "Punched Out"],
