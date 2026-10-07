@@ -30,6 +30,19 @@ const employeeSchema = new mongoose.Schema(
       trim: true,
       default: "",
     },
+
+    // Empty means use the company attendance limits.
+    lateComingTime: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+
+    halfDayTime: {
+      type: String,
+      trim: true,
+      default: "",
+    },
   },
   {
     timestamps: true,

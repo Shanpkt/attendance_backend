@@ -66,6 +66,20 @@ const getDayLimitsFromSettings = (settings) => {
   };
 };
 
+const resolveDayLimits = (settings, employee) => {
+  const companyLimits =
+    getDayLimitsFromSettings(settings);
+
+  return {
+    lateComingTime:
+      employee?.lateComingTime ||
+      companyLimits.lateComingTime,
+    halfDayTime:
+      employee?.halfDayTime ||
+      companyLimits.halfDayTime,
+  };
+};
+
 const computeAttendanceFlags = ({
   punchInTimestamp,
   punchOutTimestamp,
@@ -91,5 +105,6 @@ const computeAttendanceFlags = ({
 module.exports = {
   DEFAULT_LIMITS,
   getDayLimitsFromSettings,
+  resolveDayLimits,
   computeAttendanceFlags,
 };

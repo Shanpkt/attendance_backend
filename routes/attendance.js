@@ -2,6 +2,7 @@ const express = require("express");
 const mongoose = require("mongoose");
 
 const Attendance = require("../models/Attendance");
+const Employee = require("../models/Employee");
 const Setting = require("../models/Setting");
 const {
   isWithinOffice,
@@ -9,7 +10,7 @@ const {
 } = require("../utils/geo");
 const { getLocationName } = require("../utils/geocode");
 const {
-  getDayLimitsFromSettings,
+  resolveDayLimits,
   computeAttendanceFlags,
 } = require("../utils/attendanceFlags");
 
@@ -275,8 +276,13 @@ router.post("/", async (req, res) => {
 
     const currentTime = new Date();
 
-    const dayLimits = getDayLimitsFromSettings(
-      officeSettings
+    const employee = await Employee.findOne({
+      mobileNumber: cleanMobileNumber,
+    });
+
+    const dayLimits = resolveDayLimits(
+      officeSettings,
+      employee
     );
 
     if (!attendance) {

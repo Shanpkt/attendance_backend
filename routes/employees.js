@@ -1,8 +1,50 @@
 const express = require("express");
 
 const Employee = require("../models/Employee");
+const Setting = require("../models/Setting");
 
 const router = express.Router();
+
+const isValidTime = (value) => {
+  return /^([01]\d|2[0-3]):([0-5]\d)$/.test(
+    String(value || "").trim()
+  );
+};
+
+const readOptionalTime = (body, key) => {
+  if (
+    !Object.prototype.hasOwnProperty.call(
+      body,
+      key
+    )
+  ) {
+    return {
+      provided: false,
+      value: "",
+    };
+  }
+
+  const value = String(body[key] || "").trim();
+
+  if (!value) {
+    return {
+      provided: true,
+      value: "",
+    };
+  }
+
+  if (!isValidTime(value)) {
+    return {
+      provided: true,
+      value: null,
+    };
+  }
+
+  return {
+    provided: true,
+    value,
+  };
+};
 
 // POST /api/employees
 router.post("/", async (req, res) => {
@@ -172,6 +214,60 @@ router.put("/:id", async (req, res) => {
       employee.profilePic = String(
         profilePic || ""
       ).trim();
+    }
+
+    const lateComingTime = readOptionalTime(
+      req.body,
+      "lateComingTime"
+    );
+
+    const halfDayTime = readOptionalTime(
+      req.body,
+      "halfDayTime"
+    );
+
+    if (
+      lateComingTime.value === null ||
+      halfDayTime.value === null
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Late mark and half day times must be empty or HH:MM.",
+      });
+    }
+
+    if (lateComingTime.provided) {
+      employee.lateComingTime =
+        lateComingTime.value;
+    }
+
+    if (halfDayTime.provided) {
+      employee.halfDayTime = halfDayTime.value;
+    }
+
+    const officeSettings = await Setting.findOne({
+      key: "attendanceLimits",
+    });
+
+    const resolvedLateTime =
+      employee.lateComingTime ||
+      officeSettings?.lateComingTime ||
+      "10:00";
+
+    const resolvedHalfDayTime =
+      employee.halfDayTime ||
+      officeSettings?.halfDayTime ||
+      "13:30";
+
+    if (
+      resolvedHalfDayTime <= resolvedLateTime
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Half day time must be later than the late mark time.",
+      });
     }
 
     const updatedEmployee = await employee.save();
