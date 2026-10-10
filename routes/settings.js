@@ -13,6 +13,7 @@ const DEFAULT_SETTINGS = {
   tolerance: 30,
   punchAccuracy: 30,
   gpsTolerance: true,
+  paidLeaves: 0,
 };
 
 const isValidTime = (value) => {
@@ -116,6 +117,38 @@ const parseOptionalBoolean = (body, key) => {
   };
 };
 
+const parsePaidLeaves = (body) => {
+  if (
+    !Object.prototype.hasOwnProperty.call(
+      body,
+      "paidLeaves"
+    )
+  ) {
+    return {
+      provided: false,
+      value: null,
+    };
+  }
+
+  const number = Number(body.paidLeaves);
+
+  if (
+    !Number.isInteger(number) ||
+    number < 0 ||
+    number > 366
+  ) {
+    return {
+      provided: true,
+      value: undefined,
+    };
+  }
+
+  return {
+    provided: true,
+    value: number,
+  };
+};
+
 const getOrCreateSettings = async () => {
   let settings = await Setting.findOne({
     key: "attendanceLimits",
@@ -134,6 +167,7 @@ const getOrCreateSettings = async () => {
       tolerance: DEFAULT_SETTINGS.tolerance,
       punchAccuracy: DEFAULT_SETTINGS.punchAccuracy,
       gpsTolerance: DEFAULT_SETTINGS.gpsTolerance,
+      paidLeaves: DEFAULT_SETTINGS.paidLeaves,
     });
   }
 
@@ -235,6 +269,8 @@ router.put("/", async (req, res) => {
       "gpsTolerance"
     );
 
+    const paidLeaves = parsePaidLeaves(req.body);
+
     if (
       latitude.value === undefined ||
       longitude.value === undefined ||
@@ -254,6 +290,14 @@ router.put("/", async (req, res) => {
         success: false,
         message:
           "GPS tolerance must be true or false.",
+      });
+    }
+
+    if (paidLeaves.value === undefined) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Paid leaves must be a whole number from 0 to 366.",
       });
     }
 
@@ -292,6 +336,13 @@ router.put("/", async (req, res) => {
         ? existing.gpsTolerance
         : DEFAULT_SETTINGS.gpsTolerance;
 
+    const nextPaidLeaves = paidLeaves.provided
+      ? paidLeaves.value
+      : existing.paidLeaves !== undefined &&
+          existing.paidLeaves !== null
+        ? existing.paidLeaves
+        : DEFAULT_SETTINGS.paidLeaves;
+
     const settings =
       await Setting.findOneAndUpdate(
         {
@@ -307,6 +358,7 @@ router.put("/", async (req, res) => {
             tolerance: nextTolerance,
             punchAccuracy: nextPunchAccuracy,
             gpsTolerance: nextGpsTolerance,
+            paidLeaves: nextPaidLeaves,
           },
           $setOnInsert: {
             key: "attendanceLimits",
