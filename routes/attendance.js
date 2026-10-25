@@ -402,6 +402,250 @@ router.post("/", async (req, res) => {
   }
 });
 
+const isValidTime = (value) => {
+  return /^([01]\d|2[0-3]):([0-5]\d)$/.test(
+    String(value || "").trim()
+  );
+};
+
+const isValidDateKey = (value) => {
+  const date = String(value || "").trim();
+
+  return (
+    /^\d{4}-\d{2}-\d{2}$/.test(date) ||
+    /^\d{1,2}\/\d{1,2}\/\d{4}$/.test(date)
+  );
+};
+
+const readTimestamp = (value) => {
+  if (
+    value === undefined ||
+    value === null ||
+    value === ""
+  ) {
+    return null;
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return undefined;
+  }
+
+  return date;
+};
+
+const keepPunchDetails = (punch, timestamp) => {
+  if (!timestamp) {
+    return {
+      timestamp: null,
+      latitude: null,
+      longitude: null,
+      accuracy: null,
+      locationName: null,
+      selfieUrl: null,
+    };
+  }
+
+  return {
+    timestamp,
+    latitude:
+      punch?.latitude ?? null,
+    longitude:
+      punch?.longitude ?? null,
+    accuracy:
+      punch?.accuracy ?? null,
+    locationName:
+      punch?.locationName || "Corrected by admin",
+    selfieUrl:
+      punch?.selfieUrl ?? null,
+  };
+};
+
+// PUT /api/attendance/correct
+router.put("/correct", async (req, res) => {
+  try {
+    const mobileNumber = String(
+      req.body.mobileNumber || ""
+    ).trim();
+
+    const date = String(
+      req.body.date || ""
+    ).trim();
+
+    const lateComingTime = String(
+      req.body.lateComingTime || ""
+    ).trim();
+
+    const punchInTime = readTimestamp(
+      req.body.punchInTime
+    );
+
+    const hasPunchOut = Object.prototype.hasOwnProperty.call(
+      req.body,
+      "punchOutTime"
+    );
+
+    const punchOutTime = hasPunchOut
+      ? readTimestamp(req.body.punchOutTime)
+      : null;
+
+    if (!/^[6-9]\d{9}$/.test(mobileNumber)) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Please provide a valid 10-digit mobile number.",
+      });
+    }
+
+    if (!isValidDateKey(date)) {
+      return res.status(400).json({
+        success: false,
+        message: "Date must be YYYY-MM-DD.",
+      });
+    }
+
+    if (!isValidTime(lateComingTime)) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Late time limit must be a valid time (HH:MM).",
+      });
+    }
+
+    if (
+      punchInTime === undefined ||
+      punchOutTime === undefined
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Punch in and punch out must be valid times.",
+      });
+    }
+
+    if (!punchInTime) {
+      return res.status(400).json({
+        success: false,
+        message: "Punch in time is required.",
+      });
+    }
+
+    if (
+      punchOutTime &&
+      punchOutTime.getTime() <= punchInTime.getTime()
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Punch out must be later than punch in.",
+      });
+    }
+
+    const employee = await Employee.findOne({
+      mobileNumber,
+    });
+
+    if (!employee) {
+      return res.status(404).json({
+        success: false,
+        message: "Employee not found.",
+      });
+    }
+
+    const officeSettings = await Setting.findOne({
+      key: "attendanceLimits",
+    });
+
+    const dayLimits = resolveDayLimits(
+      officeSettings,
+      employee
+    );
+
+    let attendance = await Attendance.findOne({
+      mobileNumber,
+      date,
+    });
+
+    const halfDayTime =
+      attendance?.limits?.halfDayTime ||
+      dayLimits.halfDayTime;
+
+    if (halfDayTime <= lateComingTime) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Late time limit must be earlier than the half day time.",
+      });
+    }
+
+    const limits = {
+      lateComingTime,
+      halfDayTime,
+    };
+
+    const flags = computeAttendanceFlags({
+      punchInTimestamp: punchInTime,
+      punchOutTimestamp: punchOutTime,
+      lateComingTime,
+      halfDayTime,
+    });
+
+    const status = punchOutTime
+      ? "Punched Out"
+      : "Punched In";
+
+    if (!attendance) {
+      attendance = new Attendance({
+        mobileNumber,
+        date,
+        punchIn: keepPunchDetails(
+          null,
+          punchInTime
+        ),
+        punchOut: keepPunchDetails(
+          null,
+          punchOutTime
+        ),
+        limits,
+        flags,
+        status,
+      });
+    } else {
+      attendance.punchIn = keepPunchDetails(
+        attendance.punchIn,
+        punchInTime
+      );
+      attendance.punchOut = keepPunchDetails(
+        attendance.punchOut,
+        punchOutTime
+      );
+      attendance.limits = limits;
+      attendance.flags = flags;
+      attendance.status = status;
+    }
+
+    const savedAttendance = await attendance.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Punch data updated.",
+      data: savedAttendance,
+    });
+  } catch (error) {
+    console.error(
+      "Attendance correction error:",
+      error
+    );
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to update punch data.",
+      error: error.message,
+    });
+  }
+});
+
 // DELETE /api/attendance
 router.delete("/", async (req, res) => {
   try {
