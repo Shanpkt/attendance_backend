@@ -24,6 +24,18 @@ const settingSchema = new mongoose.Schema(
       trim: true,
     },
 
+    sundayLateComingTime: {
+      type: String,
+      default: "10:00",
+      trim: true,
+    },
+
+    sundayHalfDayTime: {
+      type: String,
+      default: "13:30",
+      trim: true,
+    },
+
     latitude: {
       type: Number,
       default: null,

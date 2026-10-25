@@ -7,6 +7,8 @@ const router = express.Router();
 const DEFAULT_SETTINGS = {
   lateComingTime: "10:00",
   halfDayTime: "13:30",
+  sundayLateComingTime: "10:00",
+  sundayHalfDayTime: "13:30",
   latitude: null,
   longitude: null,
   accuracy: null,
@@ -161,6 +163,10 @@ const getOrCreateSettings = async () => {
         DEFAULT_SETTINGS.lateComingTime,
       halfDayTime:
         DEFAULT_SETTINGS.halfDayTime,
+      sundayLateComingTime:
+        DEFAULT_SETTINGS.sundayLateComingTime,
+      sundayHalfDayTime:
+        DEFAULT_SETTINGS.sundayHalfDayTime,
       latitude: DEFAULT_SETTINGS.latitude,
       longitude: DEFAULT_SETTINGS.longitude,
       accuracy: DEFAULT_SETTINGS.accuracy,
@@ -218,6 +224,26 @@ router.put("/", async (req, res) => {
       req.body.halfDayTime || ""
     ).trim();
 
+    const hasSundayLate =
+      Object.prototype.hasOwnProperty.call(
+        req.body,
+        "sundayLateComingTime"
+      );
+
+    const hasSundayHalf =
+      Object.prototype.hasOwnProperty.call(
+        req.body,
+        "sundayHalfDayTime"
+      );
+
+    const sundayLateComingTime = String(
+      req.body.sundayLateComingTime || ""
+    ).trim();
+
+    const sundayHalfDayTime = String(
+      req.body.sundayHalfDayTime || ""
+    ).trim();
+
     if (
       !isValidTime(lateComingTime) ||
       !isValidTime(halfDayTime)
@@ -226,6 +252,19 @@ router.put("/", async (req, res) => {
         success: false,
         message:
           "Valid late coming time and half day time are required (HH:MM).",
+      });
+    }
+
+    if (
+      (hasSundayLate &&
+        !isValidTime(sundayLateComingTime)) ||
+      (hasSundayHalf &&
+        !isValidTime(sundayHalfDayTime))
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Valid Sunday late time and Sunday half day time are required (HH:MM).",
       });
     }
 
@@ -343,6 +382,16 @@ router.put("/", async (req, res) => {
         ? existing.paidLeaves
         : DEFAULT_SETTINGS.paidLeaves;
 
+    const nextSundayLate = hasSundayLate
+      ? sundayLateComingTime
+      : existing.sundayLateComingTime ||
+        DEFAULT_SETTINGS.sundayLateComingTime;
+
+    const nextSundayHalf = hasSundayHalf
+      ? sundayHalfDayTime
+      : existing.sundayHalfDayTime ||
+        DEFAULT_SETTINGS.sundayHalfDayTime;
+
     const settings =
       await Setting.findOneAndUpdate(
         {
@@ -352,6 +401,8 @@ router.put("/", async (req, res) => {
           $set: {
             lateComingTime,
             halfDayTime,
+            sundayLateComingTime: nextSundayLate,
+            sundayHalfDayTime: nextSundayHalf,
             latitude: nextLatitude,
             longitude: nextLongitude,
             accuracy: nextAccuracy,

@@ -282,7 +282,8 @@ router.post("/", async (req, res) => {
 
     const dayLimits = resolveDayLimits(
       officeSettings,
-      employee
+      employee,
+      date
     );
 
     if (!attendance) {
@@ -559,7 +560,8 @@ router.put("/correct", async (req, res) => {
 
     const dayLimits = resolveDayLimits(
       officeSettings,
-      employee
+      employee,
+      date
     );
 
     let attendance = await Attendance.findOne({
