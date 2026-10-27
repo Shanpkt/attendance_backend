@@ -15,6 +15,7 @@ const DEFAULT_SETTINGS = {
   tolerance: 30,
   punchAccuracy: 30,
   gpsTolerance: true,
+  showMonthlyAttendance: false,
   paidLeaves: 0,
 };
 
@@ -173,6 +174,8 @@ const getOrCreateSettings = async () => {
       tolerance: DEFAULT_SETTINGS.tolerance,
       punchAccuracy: DEFAULT_SETTINGS.punchAccuracy,
       gpsTolerance: DEFAULT_SETTINGS.gpsTolerance,
+      showMonthlyAttendance:
+        DEFAULT_SETTINGS.showMonthlyAttendance,
       paidLeaves: DEFAULT_SETTINGS.paidLeaves,
     });
   }
@@ -308,6 +311,12 @@ router.put("/", async (req, res) => {
       "gpsTolerance"
     );
 
+    const showMonthlyAttendance =
+      parseOptionalBoolean(
+        req.body,
+        "showMonthlyAttendance"
+      );
+
     const paidLeaves = parsePaidLeaves(req.body);
 
     if (
@@ -321,6 +330,16 @@ router.put("/", async (req, res) => {
         success: false,
         message:
           "Latitude must be -90 to 90, longitude -180 to 180, accuracy and punch accuracy 0 or more meters, and tolerance 1 or more meters.",
+      });
+    }
+
+    if (
+      showMonthlyAttendance.value === undefined
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Monthly attendance button must be enabled or disabled.",
       });
     }
 
@@ -375,6 +394,11 @@ router.put("/", async (req, res) => {
         ? existing.gpsTolerance
         : DEFAULT_SETTINGS.gpsTolerance;
 
+    const nextShowMonthlyAttendance =
+      showMonthlyAttendance.provided
+        ? showMonthlyAttendance.value
+        : existing.showMonthlyAttendance === true;
+
     const nextPaidLeaves = paidLeaves.provided
       ? paidLeaves.value
       : existing.paidLeaves !== undefined &&
@@ -409,6 +433,8 @@ router.put("/", async (req, res) => {
             tolerance: nextTolerance,
             punchAccuracy: nextPunchAccuracy,
             gpsTolerance: nextGpsTolerance,
+            showMonthlyAttendance:
+              nextShowMonthlyAttendance,
             paidLeaves: nextPaidLeaves,
           },
           $setOnInsert: {

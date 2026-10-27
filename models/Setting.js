@@ -66,6 +66,11 @@ const settingSchema = new mongoose.Schema(
       default: true,
     },
 
+    showMonthlyAttendance: {
+      type: Boolean,
+      default: false,
+    },
+
     paidLeaves: {
       type: Number,
       default: 0,
