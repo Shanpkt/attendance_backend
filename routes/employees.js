@@ -219,8 +219,9 @@ router.get(
   async (req, res) => {
     try {
       const employees = await Employee.find({
+        monthlyAttendanceRequestedAt: { $ne: null },
         monthlyAttendanceAccess: {
-          $in: ["requested", "enabled"],
+          $in: ["requested", "enabled", "disabled"],
         },
       }).sort({
         monthlyAttendanceRequestedAt: -1,
@@ -237,6 +238,48 @@ router.get(
         success: false,
         message:
           "Failed to fetch monthly attendance requests.",
+        error: error.message,
+      });
+    }
+  }
+);
+
+// DELETE /api/employees/:id/monthly-access
+router.delete(
+  "/:id/monthly-access",
+  async (req, res) => {
+    try {
+      const employee = await Employee.findById(
+        req.params.id
+      );
+
+      if (!employee) {
+        return res.status(404).json({
+          success: false,
+          message: "Employee not found.",
+        });
+      }
+
+      await Employee.updateOne(
+        { _id: employee._id },
+        {
+          $unset: {
+            monthlyAttendanceAccess: "",
+            monthlyAttendanceRequestedAt: "",
+          },
+        }
+      );
+
+      return res.status(200).json({
+        success: true,
+        message:
+          "Attendance request permanently deleted.",
+      });
+    } catch (error) {
+      return res.status(500).json({
+        success: false,
+        message:
+          "Failed to delete the attendance request.",
         error: error.message,
       });
     }
