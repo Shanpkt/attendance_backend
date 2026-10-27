@@ -43,6 +43,18 @@ const employeeSchema = new mongoose.Schema(
       trim: true,
       default: "",
     },
+
+    // disabled: cannot view, requested: waiting, enabled: can view own month
+    monthlyAttendanceAccess: {
+      type: String,
+      enum: ["disabled", "requested", "enabled"],
+      default: "disabled",
+    },
+
+    monthlyAttendanceRequestedAt: {
+      type: Date,
+      default: null,
+    },
   },
   {
     timestamps: true,

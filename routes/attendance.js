@@ -103,6 +103,29 @@ router.get(
         req.params.mobileNumber
       ).trim();
 
+      const employee = await Employee.findOne({
+        mobileNumber,
+      });
+
+      if (!employee) {
+        return res.status(404).json({
+          success: false,
+          message:
+            "This mobile number is not registered.",
+        });
+      }
+
+      if (
+        employee.monthlyAttendanceAccess !==
+        "enabled"
+      ) {
+        return res.status(403).json({
+          success: false,
+          message:
+            "Monthly attendance is not enabled for this employee.",
+        });
+      }
+
       const attendance = await Attendance.find({
         mobileNumber,
       }).sort({

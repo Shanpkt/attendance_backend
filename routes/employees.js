@@ -143,6 +143,161 @@ router.get("/", async (req, res) => {
   }
 });
 
+const readMobileNumber = (value) => {
+  const mobileNumber = String(value || "").trim();
+
+  if (!/^\d{10}$/.test(mobileNumber)) {
+    return "";
+  }
+
+  return mobileNumber;
+};
+
+// POST /api/employees/monthly-access/request
+router.post(
+  "/monthly-access/request",
+  async (req, res) => {
+    try {
+      const mobileNumber = readMobileNumber(
+        req.body.mobileNumber
+      );
+
+      if (!mobileNumber) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Valid mobile number is required.",
+        });
+      }
+
+      const employee = await Employee.findOne({
+        mobileNumber,
+      });
+
+      if (!employee) {
+        return res.status(404).json({
+          success: false,
+          message:
+            "This mobile number is not registered.",
+        });
+      }
+
+      if (
+        employee.monthlyAttendanceAccess !==
+        "enabled"
+      ) {
+        employee.monthlyAttendanceAccess =
+          "requested";
+        employee.monthlyAttendanceRequestedAt =
+          new Date();
+        await employee.save();
+      }
+
+      return res.status(200).json({
+        success: true,
+        message:
+          employee.monthlyAttendanceAccess ===
+          "enabled"
+            ? "Monthly attendance is already enabled."
+            : "Request sent to admin.",
+        data: employee,
+      });
+    } catch (error) {
+      return res.status(500).json({
+        success: false,
+        message:
+          "Failed to raise monthly attendance request.",
+        error: error.message,
+      });
+    }
+  }
+);
+
+// GET /api/employees/monthly-access/requests
+router.get(
+  "/monthly-access/requests",
+  async (req, res) => {
+    try {
+      const employees = await Employee.find({
+        monthlyAttendanceAccess: {
+          $in: ["requested", "enabled"],
+        },
+      }).sort({
+        monthlyAttendanceRequestedAt: -1,
+        updatedAt: -1,
+      });
+
+      return res.status(200).json({
+        success: true,
+        count: employees.length,
+        data: employees,
+      });
+    } catch (error) {
+      return res.status(500).json({
+        success: false,
+        message:
+          "Failed to fetch monthly attendance requests.",
+        error: error.message,
+      });
+    }
+  }
+);
+
+// PATCH /api/employees/:id/monthly-access
+router.patch(
+  "/:id/monthly-access",
+  async (req, res) => {
+    try {
+      if (typeof req.body.enabled !== "boolean") {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Choose enable or disable for this employee.",
+        });
+      }
+
+      const employee = await Employee.findById(
+        req.params.id
+      );
+
+      if (!employee) {
+        return res.status(404).json({
+          success: false,
+          message: "Employee not found.",
+        });
+      }
+
+      employee.monthlyAttendanceAccess =
+        req.body.enabled ? "enabled" : "disabled";
+
+      if (
+        req.body.enabled &&
+        !employee.monthlyAttendanceRequestedAt
+      ) {
+        employee.monthlyAttendanceRequestedAt =
+          new Date();
+      }
+
+      const updatedEmployee = await employee.save();
+
+      return res.status(200).json({
+        success: true,
+        message: req.body.enabled
+          ? "Employee can now see monthly attendance."
+          : "Monthly attendance view turned off.",
+        data: updatedEmployee,
+      });
+    } catch (error) {
+      return res.status(500).json({
+        success: false,
+        message:
+          "Failed to update monthly attendance access.",
+        error: error.message,
+      });
+    }
+  }
+);
+
 // GET /api/employees/:id
 router.get("/:id", async (req, res) => {
   try {
