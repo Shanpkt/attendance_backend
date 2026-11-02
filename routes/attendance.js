@@ -13,8 +13,19 @@ const {
   resolveDayLimits,
   computeAttendanceFlags,
 } = require("../utils/attendanceFlags");
+const {
+  getSettingsKeyForWorkspace,
+} = require("../utils/settingsKeys");
 
 const router = express.Router();
+
+const getOfficeSettingsForEmployee = async (employee) => {
+  const key = getSettingsKeyForWorkspace(
+    employee?.workspace
+  );
+
+  return Setting.findOne({ key });
+};
 
 // GET /api/attendance/status/:mobileNumber
 router.get(
@@ -303,8 +314,14 @@ router.post("/", async (req, res) => {
       mobileNumber: cleanMobileNumber,
     });
 
+    const limitSettings =
+      employee?.workspace === "company"
+        ? (await getOfficeSettingsForEmployee(employee)) ||
+          officeSettings
+        : officeSettings;
+
     const dayLimits = resolveDayLimits(
-      officeSettings,
+      limitSettings,
       employee,
       date
     );
@@ -577,9 +594,8 @@ router.put("/correct", async (req, res) => {
       });
     }
 
-    const officeSettings = await Setting.findOne({
-      key: "attendanceLimits",
-    });
+    const officeSettings =
+      await getOfficeSettingsForEmployee(employee);
 
     const dayLimits = resolveDayLimits(
       officeSettings,

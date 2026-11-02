@@ -1,6 +1,10 @@
 const express = require("express");
 
 const Setting = require("../models/Setting");
+const {
+  getSettingsKeyForWorkspace,
+  normalizeWorkspace,
+} = require("../utils/settingsKeys");
 
 const router = express.Router();
 
@@ -152,14 +156,14 @@ const parsePaidLeaves = (body) => {
   };
 };
 
-const getOrCreateSettings = async () => {
-  let settings = await Setting.findOne({
-    key: "attendanceLimits",
-  });
+const getOrCreateSettings = async (workspace = "shop") => {
+  const key = getSettingsKeyForWorkspace(workspace);
+
+  let settings = await Setting.findOne({ key });
 
   if (!settings) {
     settings = await Setting.create({
-      key: "attendanceLimits",
+      key,
       lateComingTime:
         DEFAULT_SETTINGS.lateComingTime,
       halfDayTime:
@@ -185,13 +189,16 @@ const getOrCreateSettings = async () => {
 
 // ==================================================
 // GET ATTENDANCE LIMITS
-// GET /api/settings
+// GET /api/settings?workspace=shop|company
 // ==================================================
 
 router.get("/", async (req, res) => {
   try {
+    const workspace = normalizeWorkspace(
+      req.query.workspace
+    );
     const settings =
-      await getOrCreateSettings();
+      await getOrCreateSettings(workspace);
 
     return res.status(200).json({
       success: true,
@@ -214,11 +221,17 @@ router.get("/", async (req, res) => {
 
 // ==================================================
 // UPDATE ATTENDANCE LIMITS
-// PUT /api/settings
+// PUT /api/settings?workspace=shop|company
 // ==================================================
 
 router.put("/", async (req, res) => {
   try {
+    const workspace = normalizeWorkspace(
+      req.body.workspace || req.query.workspace
+    );
+    const settingsKey =
+      getSettingsKeyForWorkspace(workspace);
+
     const lateComingTime = String(
       req.body.lateComingTime || ""
     ).trim();
@@ -258,6 +271,14 @@ router.put("/", async (req, res) => {
       });
     }
 
+    if (halfDayTime <= lateComingTime) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Half day time must be later than the late coming time.",
+      });
+    }
+
     if (
       (hasSundayLate &&
         !isValidTime(sundayLateComingTime)) ||
@@ -268,6 +289,60 @@ router.put("/", async (req, res) => {
         success: false,
         message:
           "Valid Sunday late time and Sunday half day time are required (HH:MM).",
+      });
+    }
+
+    const existing =
+      await getOrCreateSettings(workspace);
+
+    const nextSundayLate = hasSundayLate
+      ? sundayLateComingTime
+      : existing.sundayLateComingTime ||
+        DEFAULT_SETTINGS.sundayLateComingTime;
+
+    const nextSundayHalf = hasSundayHalf
+      ? sundayHalfDayTime
+      : existing.sundayHalfDayTime ||
+        DEFAULT_SETTINGS.sundayHalfDayTime;
+
+    // Company settings currently only manage daily late / half-day limits.
+    if (workspace === "company") {
+      const settings =
+        await Setting.findOneAndUpdate(
+          { key: settingsKey },
+          {
+            $set: {
+              lateComingTime,
+              halfDayTime,
+              sundayLateComingTime: nextSundayLate,
+              sundayHalfDayTime: nextSundayHalf,
+            },
+            $setOnInsert: {
+              key: settingsKey,
+              latitude: DEFAULT_SETTINGS.latitude,
+              longitude: DEFAULT_SETTINGS.longitude,
+              accuracy: DEFAULT_SETTINGS.accuracy,
+              tolerance: DEFAULT_SETTINGS.tolerance,
+              punchAccuracy: DEFAULT_SETTINGS.punchAccuracy,
+              gpsTolerance: DEFAULT_SETTINGS.gpsTolerance,
+              showMonthlyAttendance:
+                DEFAULT_SETTINGS.showMonthlyAttendance,
+              paidLeaves: DEFAULT_SETTINGS.paidLeaves,
+            },
+          },
+          {
+            new: true,
+            upsert: true,
+            runValidators: true,
+            setDefaultsOnInsert: true,
+          }
+        );
+
+      return res.status(200).json({
+        success: true,
+        message:
+          "Company settings updated successfully.",
+        data: settings,
       });
     }
 
@@ -359,9 +434,6 @@ router.put("/", async (req, res) => {
       });
     }
 
-    const existing =
-      await getOrCreateSettings();
-
     const nextLatitude = latitude.provided
       ? latitude.value
       : existing.latitude;
@@ -406,20 +478,10 @@ router.put("/", async (req, res) => {
         ? existing.paidLeaves
         : DEFAULT_SETTINGS.paidLeaves;
 
-    const nextSundayLate = hasSundayLate
-      ? sundayLateComingTime
-      : existing.sundayLateComingTime ||
-        DEFAULT_SETTINGS.sundayLateComingTime;
-
-    const nextSundayHalf = hasSundayHalf
-      ? sundayHalfDayTime
-      : existing.sundayHalfDayTime ||
-        DEFAULT_SETTINGS.sundayHalfDayTime;
-
     const settings =
       await Setting.findOneAndUpdate(
         {
-          key: "attendanceLimits",
+          key: settingsKey,
         },
         {
           $set: {
@@ -438,7 +500,7 @@ router.put("/", async (req, res) => {
             paidLeaves: nextPaidLeaves,
           },
           $setOnInsert: {
-            key: "attendanceLimits",
+            key: settingsKey,
           },
         },
         {

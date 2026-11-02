@@ -2,6 +2,9 @@ const express = require("express");
 
 const Employee = require("../models/Employee");
 const Setting = require("../models/Setting");
+const {
+  getSettingsKeyForWorkspace,
+} = require("../utils/settingsKeys");
 
 const router = express.Router();
 
@@ -50,6 +53,28 @@ const normalizeWorkspace = (value) => {
   return String(value || "").trim() === "company"
     ? "company"
     : "shop";
+};
+
+const buildWorkspaceFilter = (workspace) => {
+  if (!workspace) {
+    return {};
+  }
+
+  const safeWorkspace = normalizeWorkspace(workspace);
+
+  if (safeWorkspace === "company") {
+    return { workspace: "company" };
+  }
+
+  // Treat missing/empty workspace as shop for older records
+  return {
+    $or: [
+      { workspace: "shop" },
+      { workspace: { $exists: false } },
+      { workspace: null },
+      { workspace: "" },
+    ],
+  };
 };
 
 // POST /api/employees
@@ -133,7 +158,9 @@ router.post("/", async (req, res) => {
 // GET /api/employees
 router.get("/", async (req, res) => {
   try {
-    const employees = await Employee.find().sort({
+    const filter = buildWorkspaceFilter(req.query.workspace);
+
+    const employees = await Employee.find(filter).sort({
       createdAt: -1,
     });
 
@@ -226,7 +253,12 @@ router.get(
   "/monthly-access/requests",
   async (req, res) => {
     try {
+      const workspaceFilter = buildWorkspaceFilter(
+        req.query.workspace
+      );
+
       const employees = await Employee.find({
+        ...workspaceFilter,
         monthlyAttendanceRequestedAt: { $ne: null },
         monthlyAttendanceAccess: {
           $in: ["requested", "enabled", "disabled"],
@@ -458,7 +490,7 @@ router.put("/:id", async (req, res) => {
     }
 
     const officeSettings = await Setting.findOne({
-      key: "attendanceLimits",
+      key: getSettingsKeyForWorkspace(employee.workspace),
     });
 
     const resolvedLateTime =
