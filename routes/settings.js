@@ -305,8 +305,122 @@ router.put("/", async (req, res) => {
       : existing.sundayHalfDayTime ||
         DEFAULT_SETTINGS.sundayHalfDayTime;
 
-    // Company settings currently only manage daily late / half-day limits.
+    // Company settings: daily/Sunday limits + paid leave + GPS.
     if (workspace === "company") {
+      const paidLeaves = parsePaidLeaves(req.body);
+
+      if (
+        paidLeaves.provided &&
+        paidLeaves.value === undefined
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Paid leaves must be a whole number from 0 to 366.",
+        });
+      }
+
+      const latitude = parseOptionalNumber(
+        req.body,
+        "latitude",
+        -90,
+        90
+      );
+
+      const longitude = parseOptionalNumber(
+        req.body,
+        "longitude",
+        -180,
+        180
+      );
+
+      const accuracy = parseOptionalNumber(
+        req.body,
+        "accuracy",
+        0,
+        100000
+      );
+
+      const tolerance = parseOptionalNumber(
+        req.body,
+        "tolerance",
+        1,
+        100000
+      );
+
+      const punchAccuracy = parseOptionalNumber(
+        req.body,
+        "punchAccuracy",
+        0,
+        100000
+      );
+
+      const gpsTolerance = parseOptionalBoolean(
+        req.body,
+        "gpsTolerance"
+      );
+
+      if (
+        latitude.value === undefined ||
+        longitude.value === undefined ||
+        accuracy.value === undefined ||
+        tolerance.value === undefined ||
+        punchAccuracy.value === undefined
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Latitude must be -90 to 90, longitude -180 to 180, accuracy and punch accuracy 0 or more meters, and tolerance 1 or more meters.",
+        });
+      }
+
+      if (gpsTolerance.value === undefined) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "GPS tolerance must be true or false.",
+        });
+      }
+
+      const nextPaidLeaves = paidLeaves.provided
+        ? paidLeaves.value
+        : existing.paidLeaves !== undefined &&
+            existing.paidLeaves !== null
+          ? existing.paidLeaves
+          : DEFAULT_SETTINGS.paidLeaves;
+
+      const nextLatitude = latitude.provided
+        ? latitude.value
+        : existing.latitude;
+
+      const nextLongitude = longitude.provided
+        ? longitude.value
+        : existing.longitude;
+
+      const nextAccuracy = accuracy.provided
+        ? accuracy.value
+        : existing.accuracy;
+
+      const nextTolerance = tolerance.provided
+        ? tolerance.value
+        : existing.tolerance !== undefined &&
+            existing.tolerance !== null
+          ? existing.tolerance
+          : DEFAULT_SETTINGS.tolerance;
+
+      const nextPunchAccuracy = punchAccuracy.provided
+        ? punchAccuracy.value
+        : existing.punchAccuracy !== undefined &&
+            existing.punchAccuracy !== null
+          ? existing.punchAccuracy
+          : DEFAULT_SETTINGS.punchAccuracy;
+
+      const nextGpsTolerance = gpsTolerance.provided
+        ? gpsTolerance.value
+        : existing.gpsTolerance !== undefined
+          ? existing.gpsTolerance
+          : DEFAULT_SETTINGS.gpsTolerance;
+
       const settings =
         await Setting.findOneAndUpdate(
           { key: settingsKey },
@@ -316,18 +430,18 @@ router.put("/", async (req, res) => {
               halfDayTime,
               sundayLateComingTime: nextSundayLate,
               sundayHalfDayTime: nextSundayHalf,
+              paidLeaves: nextPaidLeaves,
+              latitude: nextLatitude,
+              longitude: nextLongitude,
+              accuracy: nextAccuracy,
+              tolerance: nextTolerance,
+              punchAccuracy: nextPunchAccuracy,
+              gpsTolerance: nextGpsTolerance,
             },
             $setOnInsert: {
               key: settingsKey,
-              latitude: DEFAULT_SETTINGS.latitude,
-              longitude: DEFAULT_SETTINGS.longitude,
-              accuracy: DEFAULT_SETTINGS.accuracy,
-              tolerance: DEFAULT_SETTINGS.tolerance,
-              punchAccuracy: DEFAULT_SETTINGS.punchAccuracy,
-              gpsTolerance: DEFAULT_SETTINGS.gpsTolerance,
               showMonthlyAttendance:
                 DEFAULT_SETTINGS.showMonthlyAttendance,
-              paidLeaves: DEFAULT_SETTINGS.paidLeaves,
             },
           },
           {

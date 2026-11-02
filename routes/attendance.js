@@ -230,9 +230,15 @@ router.post("/", async (req, res) => {
       });
     }
 
-    const officeSettings = await Setting.findOne({
-      key: "attendanceLimits",
+    const employee = await Employee.findOne({
+      mobileNumber: cleanMobileNumber,
     });
+
+    const officeSettings =
+      (await getOfficeSettingsForEmployee(employee)) ||
+      (await Setting.findOne({
+        key: "attendanceLimits",
+      }));
 
     const skipGpsCheck = !shouldKeepGpsTolerance(
       officeSettings?.gpsTolerance
@@ -310,18 +316,8 @@ router.post("/", async (req, res) => {
 
     const currentTime = new Date();
 
-    const employee = await Employee.findOne({
-      mobileNumber: cleanMobileNumber,
-    });
-
-    const limitSettings =
-      employee?.workspace === "company"
-        ? (await getOfficeSettingsForEmployee(employee)) ||
-          officeSettings
-        : officeSettings;
-
     const dayLimits = resolveDayLimits(
-      limitSettings,
+      officeSettings,
       employee,
       date
     );
