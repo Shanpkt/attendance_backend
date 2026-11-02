@@ -46,6 +46,12 @@ const readOptionalTime = (body, key) => {
   };
 };
 
+const normalizeWorkspace = (value) => {
+  return String(value || "").trim() === "company"
+    ? "company"
+    : "shop";
+};
+
 // POST /api/employees
 router.post("/", async (req, res) => {
   try {
@@ -55,6 +61,7 @@ router.post("/", async (req, res) => {
       email,
       joiningDate,
       profilePic,
+      workspace,
     } = req.body;
 
     if (!name?.trim()) {
@@ -104,6 +111,7 @@ router.post("/", async (req, res) => {
       email: email?.trim() || "",
       joiningDate,
       profilePic: String(profilePic || "").trim(),
+      workspace: normalizeWorkspace(workspace),
     });
 
     const savedEmployee = await employee.save();
@@ -377,6 +385,7 @@ router.put("/:id", async (req, res) => {
       email,
       joiningDate,
       profilePic,
+      workspace,
     } = req.body;
 
     const employee = await Employee.findById(
@@ -412,6 +421,10 @@ router.put("/:id", async (req, res) => {
       employee.profilePic = String(
         profilePic || ""
       ).trim();
+    }
+
+    if (workspace !== undefined) {
+      employee.workspace = normalizeWorkspace(workspace);
     }
 
     const lateComingTime = readOptionalTime(

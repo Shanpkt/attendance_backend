@@ -55,6 +55,13 @@ const employeeSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+
+    // shop = store staff, company = company staff
+    workspace: {
+      type: String,
+      enum: ["shop", "company"],
+      default: "shop",
+    },
   },
   {
     timestamps: true,

@@ -7,10 +7,30 @@ const employeesRoutes = require("./routes/employees");
 const leavesRoutes = require("./routes/leaves");
 const settingsRoutes = require("./routes/settings");
 const holidaysRoutes = require("./routes/holidays");
+const Employee = require("./models/Employee");
 const {
   router: adminAuthRoutes,
   ensureDefaultAdmin,
 } = require("./routes/adminAuth");
+
+async function backfillEmployeeWorkspace() {
+  const result = await Employee.updateMany(
+    {
+      $or: [
+        { workspace: { $exists: false } },
+        { workspace: null },
+        { workspace: "" },
+      ],
+    },
+    { $set: { workspace: "shop" } }
+  );
+
+  if (result.modifiedCount > 0) {
+    console.log(
+      `Backfilled workspace=shop on ${result.modifiedCount} employees`
+    );
+  }
+}
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -42,6 +62,15 @@ mongoose
     } catch (error) {
       console.error(
         "Default admin seed error:",
+        error.message
+      );
+    }
+
+    try {
+      await backfillEmployeeWorkspace();
+    } catch (error) {
+      console.error(
+        "Employee workspace backfill error:",
         error.message
       );
     }
