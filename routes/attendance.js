@@ -105,6 +105,50 @@ router.get(
   }
 );
 
+// GET /api/attendance/manage/:mobileNumber
+// Admin punch edit: no monthly-attendance access gate.
+router.get(
+  "/manage/:mobileNumber",
+  async (req, res) => {
+    try {
+      const mobileNumber = String(
+        req.params.mobileNumber
+      ).trim();
+
+      const employee = await Employee.findOne({
+        mobileNumber,
+      });
+
+      if (!employee) {
+        return res.status(404).json({
+          success: false,
+          message:
+            "This mobile number is not registered.",
+        });
+      }
+
+      const attendance = await Attendance.find({
+        mobileNumber,
+      }).sort({
+        "punchIn.timestamp": -1,
+      });
+
+      return res.status(200).json({
+        success: true,
+        count: attendance.length,
+        data: attendance,
+      });
+    } catch (error) {
+      return res.status(500).json({
+        success: false,
+        message:
+          "Failed to fetch employee attendance.",
+        error: error.message,
+      });
+    }
+  }
+);
+
 // GET /api/attendance/employee/:mobileNumber
 router.get(
   "/employee/:mobileNumber",
