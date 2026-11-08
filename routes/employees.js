@@ -49,6 +49,28 @@ const readOptionalTime = (body, key) => {
   };
 };
 
+const readMinPunchGapHours = (value) => {
+  if (
+    value === undefined ||
+    value === null ||
+    String(value).trim() === ""
+  ) {
+    return 0;
+  }
+
+  const hours = Number(value);
+
+  if (
+    !Number.isInteger(hours) ||
+    hours < 0 ||
+    hours > 24
+  ) {
+    return null;
+  }
+
+  return hours;
+};
+
 const normalizeWorkspace = (value) => {
   return String(value || "").trim() === "company"
     ? "company"
@@ -87,7 +109,20 @@ router.post("/", async (req, res) => {
       joiningDate,
       profilePic,
       workspace,
+      minPunchGapHours,
     } = req.body;
+
+    const punchGapHours = readMinPunchGapHours(
+      minPunchGapHours
+    );
+
+    if (punchGapHours === null) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Minimum hours before punch out must be a whole number from 0 to 24.",
+      });
+    }
 
     if (!name?.trim()) {
       return res.status(400).json({
@@ -137,6 +172,7 @@ router.post("/", async (req, res) => {
       joiningDate,
       profilePic: String(profilePic || "").trim(),
       workspace: normalizeWorkspace(workspace),
+      minPunchGapHours: punchGapHours,
     });
 
     const savedEmployee = await employee.save();
@@ -457,6 +493,27 @@ router.put("/:id", async (req, res) => {
 
     if (workspace !== undefined) {
       employee.workspace = normalizeWorkspace(workspace);
+    }
+
+    if (
+      Object.prototype.hasOwnProperty.call(
+        req.body,
+        "minPunchGapHours"
+      )
+    ) {
+      const punchGapHours = readMinPunchGapHours(
+        req.body.minPunchGapHours
+      );
+
+      if (punchGapHours === null) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Minimum hours before punch out must be a whole number from 0 to 24.",
+        });
+      }
+
+      employee.minPunchGapHours = punchGapHours;
     }
 
     const lateComingTime = readOptionalTime(

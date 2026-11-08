@@ -44,6 +44,14 @@ const employeeSchema = new mongoose.Schema(
       default: "",
     },
 
+    // Hours the employee must wait after punch in before punch out. 0 = no lock.
+    minPunchGapHours: {
+      type: Number,
+      default: 0,
+      min: 0,
+      max: 24,
+    },
+
     // disabled: cannot view, requested: waiting, enabled: can view own month
     monthlyAttendanceAccess: {
       type: String,

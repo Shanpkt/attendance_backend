@@ -19,6 +19,49 @@ const {
 
 const router = express.Router();
 
+const getPunchGapBlock = (employee, punchInTimestamp, now) => {
+  const minHours = Number(employee?.minPunchGapHours);
+
+  if (
+    !Number.isFinite(minHours) ||
+    minHours <= 0 ||
+    !punchInTimestamp
+  ) {
+    return null;
+  }
+
+  const punchInMs = new Date(punchInTimestamp).getTime();
+
+  if (Number.isNaN(punchInMs)) {
+    return null;
+  }
+
+  const allowedAtMs = punchInMs + minHours * 60 * 60 * 1000;
+  const remainingMs = allowedAtMs - now.getTime();
+
+  if (remainingMs <= 0) {
+    return null;
+  }
+
+  const totalMinutes = Math.ceil(remainingMs / 60000);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  const waitLabel =
+    hours > 0 && minutes > 0
+      ? `${hours} hr ${minutes} min`
+      : hours > 0
+        ? `${hours} hr`
+        : `${Math.max(totalMinutes, 1)} min`;
+
+  return {
+    minPunchGapHours: minHours,
+    punchOutAllowedAt: new Date(allowedAtMs).toISOString(),
+    message: `Punch out is locked for ${minHours} hour${
+      minHours === 1 ? "" : "s"
+    } after punch in. Please wait ${waitLabel}.`,
+  };
+};
+
 const getOfficeSettingsForEmployee = async (employee) => {
   const key = getSettingsKeyForWorkspace(
     employee?.workspace
@@ -70,12 +113,29 @@ router.get(
       }
 
       if (attendance.status === "Punched In") {
+        const employee = await Employee.findOne({
+          mobileNumber,
+        });
+        const punchGap = getPunchGapBlock(
+          employee,
+          attendance.punchIn?.timestamp,
+          new Date()
+        );
+
         return res.status(200).json({
           success: true,
           exists: true,
           status: attendance.status,
-          action: "PUNCH_OUT",
-          message: "Ready for Punch Out.",
+          action: punchGap ? "PUNCH_OUT_LOCKED" : "PUNCH_OUT",
+          message: punchGap
+            ? punchGap.message
+            : "Ready for Punch Out.",
+          minPunchGapHours: punchGap
+            ? punchGap.minPunchGapHours
+            : Number(employee?.minPunchGapHours) || 0,
+          punchOutAllowedAt: punchGap
+            ? punchGap.punchOutAllowedAt
+            : null,
           data: attendance,
         });
       }
@@ -412,6 +472,23 @@ router.post("/", async (req, res) => {
     }
 
     if (attendance.status === "Punched In") {
+      const punchGap = getPunchGapBlock(
+        employee,
+        attendance.punchIn?.timestamp,
+        currentTime
+      );
+
+      if (punchGap) {
+        return res.status(403).json({
+          success: false,
+          action: "PUNCH_OUT_LOCKED",
+          code: "PUNCH_GAP",
+          message: punchGap.message,
+          minPunchGapHours: punchGap.minPunchGapHours,
+          punchOutAllowedAt: punchGap.punchOutAllowedAt,
+        });
+      }
+
       attendance.punchOut = {
         timestamp: currentTime,
         latitude: punchLatitude,
